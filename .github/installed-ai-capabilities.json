@@ -7,7 +7,55 @@
       "branch": "main",
       "targetPath": "AGENTS.md",
       "sha": "924159e258f9daa2dc1e600978765a0bb6e35878"
+    },
+    {
+      "id": "dev",
+      "category": "skill",
+      "source": "microsoft/playwright-cli",
+      "branch": "main",
+      "targetPath": ".claude/skills/dev",
+      "sha": "171aba3a9831094489d398401141b0c3cd137b94"
+    },
+    {
+      "id": "playwright-triage",
+      "category": "skill",
+      "source": "microsoft/playwright-cli",
+      "branch": "main",
+      "targetPath": ".claude/skills/playwright-triage",
+      "sha": "8bfcefdabc15f66135ac47541c9b07c7fc272dc4"
+    },
+    {
+      "id": "playwright-cli",
+      "category": "skill",
+      "source": "microsoft/playwright-cli",
+      "branch": "main",
+      "targetPath": ".github/skills/playwright-cli",
+      "sha": "003ec8747c78ceb8e9da5d83f12523a06830093c"
+    },
+    {
+      "id": "web-design-guidelines",
+      "category": "skill",
+      "source": "vercel-labs/agent-skills",
+      "branch": "main",
+      "targetPath": ".github/skills/web-design-guidelines",
+      "sha": "3116f3e62dbd02b44a598b1aa690d2a8938e8f89"
+    },
+    {
+      "id": "taste-skill",
+      "category": "skill",
+      "source": "Leonxlnx/taste-skill",
+      "branch": "main",
+      "targetPath": ".github/skills/taste-skill",
+      "sha": "844f3cf223d25a29e75f7965d095a093938282df"
+    },
+    {
+      "id": "writing-guidelines",
+      "category": "skill",
+      "source": "vercel-labs/agent-skills",
+      "branch": "main",
+      "targetPath": ".github/skills/writing-guidelines",
+      "sha": "17d954cadfb8dec50bf0c707c9e7634be9ae9fe8"
     }
   ],
-  "updatedAt": "2026-11-04T06:03:32.860Z"
+  "updatedAt": "2026-11-04T08:31:55.579Z"
 }

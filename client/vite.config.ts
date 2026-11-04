@@ -1,10 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@shared': path.resolve(__dirname, '../shared/src')
+    }
+  },
   server: {
     port: 3000,
     host: true // accessible across local network (LAN / Wi-Fi)
   }
 });
+

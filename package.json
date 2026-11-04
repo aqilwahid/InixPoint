@@ -3,17 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "InixPoint - Browser-based Interactive Presentation & Classroom Quiz Platform",
-  "workspaces": [
-    "shared",
-    "server",
-    "client"
-  ],
   "scripts": {
-    "dev:server": "npm --workspace=server run dev",
-    "dev:client": "npm --workspace=client run dev",
-    "dev": "npm --workspace=server run dev",
-    "build": "npm --workspaces run build",
-    "start": "npm --workspace=server run start"
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "npm --prefix server run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "start": "npm --prefix server run start"
   },
   "keywords": [
     "classroom-quiz",

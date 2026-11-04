@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@inixpoint/shared": "*",
     "lucide-react": "^1.16.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

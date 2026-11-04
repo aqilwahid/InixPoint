@@ -47,39 +47,136 @@ Berdasarkan inspirasi fitur interaktif kelas modern:
 
 ---
 
-## 📦 Panduan Menjalankan
+## 📦 Panduan Setup & Menjalankan
+
+### ⚠️ Catatan Penting: PATH dengan Spasi
+
+**JANGAN jalankan dari path Google Drive atau folder dengan spasi/karakter khusus** (misal: `G:\My Drive\DPPP\Edukasi\...`). npm tar extraction akan error.
+
+**SOLUSI**: Clone/pindahkan ke path lokal tanpa spasi sebelum menjalankan:
+```bash
+# Contoh path yang aman:
+C:\InixPoint
+# atau
+D:\Projects\InixPoint
+```
 
 ### Prasyarat
 * [Node.js](https://nodejs.org/) v22.5.0+ (Direkomendasikan v24.x)
 * npm v10+
+* Git
 
-### 1. Instalasi Dependensi
-Jalankan di root repositori:
+### 1. Clone & Pindahkan ke Path Lokal
+
 ```bash
-npm install
+# Clone dari GitHub
+git clone https://github.com/aqilwahid/InixPoint.git
+
+# Pindahkan ke path TANPA spasi/karakter khusus
+# Contoh (Windows):
+move InixPoint C:\InixPoint
+
+# atau gunakan Command Prompt:
+# xcopy InixPoint C:\InixPoint /E /I /Y
 ```
 
-### 2. Menjalankan Mode Pengembangan (Development)
+### 2. Instalasi Dependensi
 
-Buka dua terminal atau jalankan masing-masing:
+Di root folder `InixPoint`:
+```bash
+npm install:all
+```
 
-**Terminal 1 (Backend Server):**
+Atau manual per folder:
+```bash
+cd server && npm install
+cd ../client && npm install
+cd ..
+```
+
+### 3. Menjalankan Mode Pengembangan (Development)
+
+Buka **dua terminal** terpisah di root folder InixPoint:
+
+**Terminal 1 - Backend Server:**
 ```bash
 npm run dev:server
 ```
-*Server akan berjalan di:* `http://localhost:4000`
+✅ Server Socket.io akan berjalan di: `http://localhost:4000`
 
-**Terminal 2 (Frontend Client):**
+**Terminal 2 - Frontend Client:**
 ```bash
 npm run dev:client
 ```
-*Aplikasi web akan berjalan di:* `http://localhost:3000`
+✅ Aplikasi web akan berjalan di: `http://localhost:3000`
 
-### 3. Penggunaan di Jaringan Lokal (Wi-Fi Training)
+### 4. Testing Lokal (Same Machine)
+
+1. Buka browser pertama: **`http://localhost:3000`** (sebagai Presenter)
+2. Buka browser kedua / incognito: **`http://localhost:3000`** (sebagai Participant)
+3. Klik "Buka Ruangan Baru" di browser 1 → catat kode PIN
+4. Klik "Gabung ke Sesi" di browser 2 → masukkan PIN + nama
+5. Test kuis: Multiple Choice, Word Cloud, Short Answer, Slide Drawing
+
+### 5. Testing di Jaringan Lokal (Wi-Fi / LAN Training)
+
 Jika ingin menghubungkan HP peserta di satu ruangan:
-1. Cari alamat IP laptop presenter (misal: `192.168.1.15`).
-2. Peserta cukup membuka `http://192.168.1.15:3000` di browser ponsel mereka.
-3. Masukkan kode PIN yang tampil di layar proyektor presenter.
+
+1. **Cari IP Address laptop presenter:**
+   ```bash
+   # Windows
+   ipconfig
+   
+   # Cari "IPv4 Address" (misal: 192.168.1.15)
+   ```
+
+2. **Presenter:** Buka `http://localhost:3000` di browser laptop
+
+3. **Peserta:** Di HP / perangkat lain dalam Wi-Fi yang sama, buka:
+   ```
+   http://192.168.1.15:3000
+   ```
+   (Ganti `192.168.1.15` dengan IP nyata presenter)
+
+4. Peserta masukkan **Nama + PIN** yang ditampilkan presenter
+
+---
+
+## 🏗️ Struktur Folder
+
+```
+InixPoint/
+├── shared/          # TypeScript types & contracts (Room, Question, Answer, etc)
+├── server/          # Express + Socket.io backend
+│   ├── src/
+│   │   ├── index.ts          # Main server entry
+│   │   ├── roomManager.ts    # State management (in-memory rooms)
+│   │   └── db.ts             # SQLite persistence
+│   └── package.json
+├── client/          # React + Vite + Tailwind frontend
+│   ├── src/
+│   │   ├── main.tsx          # React entry
+│   │   ├── App.tsx           # Landing page (dual join/create forms)
+│   │   ├── components/
+│   │   │   ├── Presenter.tsx # Kontrol ruangan & visualisasi jawaban
+│   │   │   ├── Participant.tsx # UI peserta
+│   │   │   └── DrawingCanvas.tsx # HTML5 canvas corat-coret
+│   │   └── lib/socket.ts     # Socket.io client setup
+│   └── package.json
+├── package.json     # Root scripts
+└── README.md
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solusi |
+|---------|--------|
+| `npm ERR! TAR_BAD_ARCHIVE` | Pindahkan folder ke path **tanpa spasi**. Google Drive path tidak aman untuk npm. |
+| `Cannot find module '@inixpoint/shared'` | Pastikan `shared/src/index.ts` ada. Vite path alias sudah dikonfigurasi di `client/vite.config.ts`. |
+| `ECONNREFUSED` di client | Pastikan server running di terminal 1. Check `http://localhost:4000/api/health`. |
+| Port 3000 / 4000 sudah digunakan | Kill process: `netstat -ano \| findstr :3000` (Windows) → `taskkill /PID <PID> /F` |
 
 ---
 

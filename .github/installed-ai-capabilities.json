@@ -1,0 +1,13 @@
+{
+  "installed": [
+    {
+      "id": "AGENTS",
+      "category": "agent",
+      "source": "morluto/rea",
+      "branch": "main",
+      "targetPath": "AGENTS.md",
+      "sha": "924159e258f9daa2dc1e600978765a0bb6e35878"
+    }
+  ],
+  "updatedAt": "2026-11-04T06:03:32.860Z"
+}

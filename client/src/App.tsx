@@ -73,127 +73,154 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col selection:bg-primary-600 selection:text-white">
       {/* Top Navbar */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-slate-800">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-sky-400 flex items-center justify-center font-black text-white text-xl shadow-lg shadow-sky-500/20">
+      <header className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 bg-white">
+        <div className="flex items-center space-x-3">
+          <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center font-serif font-bold text-white text-lg shadow-md">
             IP
           </div>
           <div>
-            <span className="font-extrabold text-xl tracking-tight text-white block">InixPoint</span>
-            <span className="text-xs text-brand-400 font-medium -mt-1 block">Platform Interaktif Pembelajaran & Kuis</span>
+            <span className="font-serif font-bold text-lg text-neutral-900 block">InixPoint</span>
+            <span className="text-xs text-primary-600 font-medium block">Platform Pembelajaran Interaktif</span>
           </div>
         </div>
-        <div className="flex items-center space-x-2 text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span>Browser-to-Browser Realtime</span>
+        <div className="text-xs bg-primary-50 text-primary-700 px-3 py-1.5 rounded-full border border-primary-200 font-medium flex items-center space-x-1.5">
+          <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+          <span>Realtime Browser</span>
         </div>
       </header>
 
-      {/* Hero & Dual Forms */}
-      <main className="max-w-5xl mx-auto px-4 py-8 flex-1 flex flex-col items-center justify-center">
-        <div className="text-center mb-8 max-w-2xl">
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
-            Interaksi Kelas Nyata, Tanpa Ribet Add-in
+      {/* Hero Section */}
+      <section className="px-6 py-12 sm:py-16 border-b border-neutral-200 bg-gradient-to-b from-primary-50 to-neutral-50">
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-neutral-900 mb-4 leading-tight">
+            Kelas Interaktif Tanpa Ribet
           </h1>
-          <p className="text-slate-400 text-sm sm:text-base">
-            Jalankan kuis pilihan ganda, word cloud, jawaban singkat, hingga kanvas gambar langsung di browser.
+          <p className="text-lg text-neutral-600 max-w-xl mx-auto">
+            Jalankan kuis pilihan ganda, word cloud, jawaban singkat, dan kanvas gambar langsung di browser. Tanpa instalasi, hanya browser dan WiFi.
           </p>
         </div>
+      </section>
 
+      {/* Main Forms */}
+      <main className="max-w-4xl mx-auto px-6 py-12 flex-1 flex flex-col items-center justify-center w-full">
         {errorMessage && (
-          <div className="w-full max-w-md mb-6 p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-sm text-center">
+          <div className="w-full mb-8 p-4 bg-error/10 border border-error/30 text-error rounded-lg text-sm text-center font-medium">
             {errorMessage}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-          {/* JOIN CARD (Peserta) */}
-          <div className="bg-slate-800/80 backdrop-blur border border-slate-700/80 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 text-brand-400 text-xs font-bold uppercase tracking-wider mb-2">
-                <Users className="w-4 h-4" />
-                <span>Untuk Peserta</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+          {/* JOIN CARD - Peserta */}
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-8 flex flex-col">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center">
+                <Users className="w-5 h-5" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-4">Gabung ke Sesi</h2>
-              <form onSubmit={handleJoinRoom} className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-400 font-medium block mb-1">Kode PIN Ruangan</label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Contoh: 829104"
-                    className="w-full bg-slate-900 border border-slate-700 text-white font-mono text-center text-xl font-bold tracking-widest px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 font-medium block mb-1">Nama Lengkap / Panggilan</label>
-                  <input
-                    type="text"
-                    value={joinName}
-                    onChange={(e) => setJoinName(e.target.value)}
-                    placeholder="Contoh: Budi Santoso"
-                    className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-bold py-3 rounded-xl shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2 transition disabled:opacity-50 mt-2"
-                >
-                  <span>Masuk Sebagai Peserta</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
+              <div>
+                <h2 className="font-serif font-bold text-xl text-neutral-900">Gabung Sesi</h2>
+                <p className="text-xs text-neutral-500">Untuk peserta / audiens</p>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-500 text-center mt-4">
-              Dapat dibuka lewat browser HP atau laptop tanpa instalasi.
+
+            <form onSubmit={handleJoinRoom} className="space-y-4 flex-1 flex flex-col">
+              <div>
+                <label className="text-sm font-semibold text-neutral-700 block mb-2">Kode PIN</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Masukkan 6 digit"
+                  className="input-base font-mono text-center text-2xl font-bold tracking-widest"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-neutral-700 block mb-2">Nama Anda</label>
+                <input
+                  type="text"
+                  value={joinName}
+                  onChange={(e) => setJoinName(e.target.value)}
+                  placeholder="Nama lengkap atau panggilan"
+                  className="input-base"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary mt-auto w-full flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <span>Masuk Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            <p className="text-xs text-neutral-500 mt-6 text-center pt-6 border-t border-neutral-200">
+              Bisa dibuka dari HP atau laptop. Tidak perlu instalasi apapun.
             </p>
           </div>
 
-          {/* HOST CARD (Trainer/Presenter) */}
-          <div className="bg-slate-800/80 backdrop-blur border border-slate-700/80 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-                <Presentation className="w-4 h-4" />
-                <span>Untuk Presenter / Trainer</span>
+          {/* HOST CARD - Presenter */}
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-8 flex flex-col">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-secondary-100 text-secondary-700 flex items-center justify-center">
+                <Presentation className="w-5 h-5" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-4">Buka Ruangan Baru</h2>
-              <form onSubmit={handleCreateRoom} className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-400 font-medium block mb-1">Judul Sesi / Kelas</label>
-                  <input
-                    type="text"
-                    value={createTitle}
-                    onChange={(e) => setCreateTitle(e.target.value)}
-                    placeholder="Judul kelas..."
-                    className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-sm"
-                  />
-                </div>
-                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
-                  <p className="font-semibold text-slate-300">Fitur Kuis Interaktif Siap Pakai:</p>
-                  <ul className="list-disc list-inside space-y-0.5 text-slate-400">
-                    <li>Pilihan Ganda (Multiple Choice) & Kunci</li>
-                    <li>Word Cloud dinamis berbasis frekuensi</li>
-                    <li>Tanya Jawab Singkat (Short Answer)</li>
-                    <li>Kanvas Corat-coret (Slide Drawing)</li>
-                  </ul>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl border border-slate-600 flex items-center justify-center space-x-2 transition disabled:opacity-50 mt-2"
-                >
-                  <span>Mulai Sebagai Presenter</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
+              <div>
+                <h2 className="font-serif font-bold text-xl text-neutral-900">Buat Ruangan</h2>
+                <p className="text-xs text-neutral-500">Untuk presenter / trainer</p>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-500 text-center mt-4">
-              Dapat ditampilkan di proyektor kelas dengan kode PIN & QR Code.
+
+            <form onSubmit={handleCreateRoom} className="space-y-4 flex-1 flex flex-col">
+              <div>
+                <label className="text-sm font-semibold text-neutral-700 block mb-2">Judul Sesi</label>
+                <input
+                  type="text"
+                  value={createTitle}
+                  onChange={(e) => setCreateTitle(e.target.value)}
+                  placeholder="Nama kelas atau topik"
+                  className="input-base"
+                />
+              </div>
+
+              <div className="p-4 bg-secondary-50 rounded-lg border border-secondary-200 space-y-2">
+                <p className="font-semibold text-secondary-900 text-sm">Fitur Siap Pakai:</p>
+                <ul className="text-xs text-secondary-700 space-y-1.5">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-secondary-500 mt-0.5">•</span>
+                    <span><strong>Pilihan Ganda</strong> dengan kunci jawaban otomatis</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-secondary-500 mt-0.5">•</span>
+                    <span><strong>Word Cloud</strong> dari respons peserta</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-secondary-500 mt-0.5">•</span>
+                    <span><strong>Tanya Jawab Singkat</strong> text real-time</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-secondary-500 mt-0.5">•</span>
+                    <span><strong>Kanvas Gambar</strong> dari peserta</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-accent mt-auto w-full flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <span>Mulai Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            <p className="text-xs text-neutral-500 mt-6 text-center pt-6 border-t border-neutral-200">
+              Dapatkan QR code & PIN untuk dibagikan ke peserta.
             </p>
           </div>
         </div>

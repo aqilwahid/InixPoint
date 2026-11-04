@@ -142,139 +142,107 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   }, [receivedAnswers]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-      {/* Top Bar Presenter */}
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between shadow-md">
+    <div className="min-h-screen bg-neutral-100 text-neutral-900 flex flex-col">
+      {/* Top Bar */}
+      <header className="bg-white border-b border-neutral-200 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center font-black text-white text-lg shadow-sm">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center font-serif font-bold text-white text-lg">
               IP
             </div>
             <div>
-              <span className="font-extrabold text-white text-lg tracking-tight">InixPoint</span>
-              <span className="text-xs text-brand-400 block -mt-1 font-medium">Presenter Control Room</span>
+              <span className="font-serif font-bold text-neutral-900">InixPoint</span>
+              <span className="text-xs text-primary-600 block font-medium">Presenter Control</span>
             </div>
           </div>
-          <div className="h-6 w-px bg-slate-700" />
-          <div className="text-sm font-semibold text-slate-300">
-            {room.title}
-          </div>
+          <div className="h-6 w-px bg-neutral-300" />
+          <h2 className="text-sm font-semibold text-neutral-700 max-w-xs truncate">{room.title}</h2>
         </div>
 
-        {/* Room Code & Stats */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <button
             type="button"
             onClick={() => setShowQRModal(true)}
-            className="flex items-center space-x-2 bg-brand-600 hover:bg-brand-500 text-white px-3.5 py-1.5 rounded-lg font-bold text-sm shadow transition"
+            className="btn-secondary flex items-center space-x-2 text-sm"
           >
             <QrCode className="w-4 h-4" />
-            <span>PIN: <strong className="font-mono text-base">{room.code}</strong></span>
+            <span className="font-mono font-bold">{room.code}</span>
           </button>
 
-          <div className="flex items-center space-x-1.5 bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200">
-            <Users className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center space-x-1.5 bg-primary-50 border border-primary-200 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary-700">
+            <div className="w-2 h-2 rounded-full bg-success"></div>
             <span>{participantList.filter(p => p.connected).length} Peserta</span>
           </div>
 
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex items-center space-x-1.5 bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition"
-            title="Ekspor CSV Hasil Sesi"
+            className="btn-secondary flex items-center space-x-1.5 text-sm"
           >
-            <Download className="w-4 h-4 text-brand-400" />
+            <Download className="w-4 h-4" />
             <span>Laporan</span>
           </button>
 
           <button
             type="button"
             onClick={onExit}
-            className="text-xs text-rose-400 hover:text-rose-300 ml-2"
+            className="text-sm font-semibold text-error hover:text-error/80 transition"
           >
             Akhiri
           </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left / Center: Interactive Stage */}
-        <main className="flex-1 flex flex-col p-6 overflow-y-auto">
-          {/* Question Launcher / Ribbon (mirip toolbar ClassPoint di gambar) */}
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-lg">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
-              <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setActiveTab('multiple_choice')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
-                  activeTab === 'multiple_choice' 
-                    ? 'bg-brand-600 text-white shadow-md' 
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>Multiple Choice</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('word_cloud')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
-                  activeTab === 'word_cloud' 
-                    ? 'bg-brand-600 text-white shadow-md' 
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                <Cloud className="w-4 h-4" />
-                <span>Word Cloud</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('short_answer')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
-                  activeTab === 'short_answer' 
-                    ? 'bg-brand-600 text-white shadow-md' 
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Short Answer</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('slide_drawing')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
-                  activeTab === 'slide_drawing' 
-                    ? 'bg-brand-600 text-white shadow-md' 
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                <PenTool className="w-4 h-4" />
-                <span>Slide Drawing</span>
-              </button>
+      {/* Main Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Question Builder */}
+        <aside className="w-full md:w-96 border-r border-neutral-200 overflow-y-auto bg-white">
+          <div className="p-6 space-y-6">
+            {/* Question Type Selector */}
+            <div>
+              <h3 className="font-serif font-bold text-neutral-900 mb-3">Jenis Pertanyaan</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { type: 'multiple_choice', label: 'Pilihan Ganda', icon: BarChart3 },
+                  { type: 'word_cloud', label: 'Word Cloud', icon: Cloud },
+                  { type: 'short_answer', label: 'Tanya Jawab', icon: MessageSquare },
+                  { type: 'slide_drawing', label: 'Gambar', icon: PenTool }
+                ].map(({ type, label, icon: Icon }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setActiveTab(type as QuestionType)}
+                    className={`flex flex-col items-center justify-center py-3 px-3 rounded-lg font-semibold text-xs transition border ${ activeTab === type
+                      ? 'bg-primary-100 text-primary-700 border-primary-300'
+                      : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 mb-1" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Config Fields */}
-            <div className="space-y-3">
-              <input
-                type="text"
+            {/* Question Input */}
+            <div>
+              <label className="text-sm font-semibold text-neutral-700 block mb-2">Pertanyaan</label>
+              <textarea
                 value={promptInput}
                 onChange={(e) => setPromptInput(e.target.value)}
-                placeholder="Tuliskan pertanyaan atau prompt untuk peserta..."
-                className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                placeholder="Tuliskan pertanyaan atau instruksi untuk peserta..."
+                className="input-base resize-none h-24"
               />
+            </div>
 
-              {activeTab === 'multiple_choice' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            {/* Multiple Choice Options */}
+            {activeTab === 'multiple_choice' && (
+              <div>
+                <label className="text-sm font-semibold text-neutral-700 block mb-2">Pilihan Jawaban</label>
+                <div className="space-y-2">
                   {optionsInput.map((opt, idx) => (
                     <div key={idx} className="flex items-center space-x-2">
-                      <span className="w-7 h-7 bg-slate-700 rounded-lg flex items-center justify-center font-bold text-xs text-brand-300">
+                      <span className="w-8 h-8 bg-primary-100 text-primary-700 rounded-lg flex items-center justify-center font-bold text-xs font-serif">
                         {String.fromCharCode(65 + idx)}
                       </span>
                       <input
@@ -285,19 +253,187 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                           next[idx] = e.target.value;
                           setOptionsInput(next);
                         }}
-                        className="flex-1 bg-slate-900 border border-slate-700 text-sm px-3 py-1.5 rounded-lg text-white"
+                        className="input-base flex-1 text-sm"
                       />
                       <button
                         type="button"
                         onClick={() => setCorrectIndex(correctIndex === idx ? undefined : idx)}
-                        className={`text-xs px-2 py-1 rounded font-medium border ${
-                          correctIndex === idx 
-                            ? 'bg-emerald-600 border-emerald-500 text-white' 
-                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                        className={`px-2.5 py-1.5 rounded text-xs font-semibold border transition ${
+                          correctIndex === idx
+                            ? 'bg-success text-white border-success'
+                            : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200'
                         }`}
-                        title="Tandai sebagai kunci jawaban"
                       >
-                        {correctIndex === idx ? 'Kunci ✓' : 'Kunci'}
+                        {correctIndex === idx ? '✓' : ''}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleStartQuestion}
+                className="btn-primary flex-1 flex items-center justify-center space-x-2"
+              >
+                <Play className="w-4 h-4" />
+                <span>Mulai Pertanyaan</span>
+              </button>
+              {room.currentQuestion?.status === 'active' && (
+                <button
+                  type="button"
+                  onClick={handleCloseQuestion}
+                  className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                >
+                  <Square className="w-4 h-4" />
+                  <span>Tutup</span>
+                </button>
+              )}
+            </div>
+
+            {/* Live Status */}
+            {room.currentQuestion?.status === 'active' && (
+              <div className="p-3 bg-primary-50 border-l-4 border-primary-600 rounded text-sm">
+                <p className="font-semibold text-primary-900 flex items-center space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-primary-600 animate-pulse"></div>
+                  <span>Pertanyaan Sedang Live</span>
+                </p>
+                <p className="text-xs text-primary-700 mt-1">{receivedAnswers.length} jawaban masuk</p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Right: Results Display */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {!room.currentQuestion || room.currentQuestion.status !== 'active' ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Trophy className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
+                <h3 className="font-serif font-bold text-xl text-neutral-700 mb-2">Siap Memulai</h3>
+                <p className="text-neutral-500">Pilih jenis pertanyaan dan klik "Mulai Pertanyaan" untuk memulai sesi interaktif.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+                <h4 className="font-serif font-bold text-lg text-neutral-900 mb-2">{room.currentQuestion.prompt}</h4>
+                <p className="text-sm text-neutral-600">Tipe: <strong>{room.currentQuestion.type.replace('_', ' ')}</strong></p>
+              </div>
+
+              {/* Results Visualization */}
+              {activeTab === 'multiple_choice' && (
+                <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+                  <h5 className="font-semibold text-neutral-900 mb-4">Hasil Pilihan Ganda</h5>
+                  <div className="space-y-3">
+                    {optionsInput.map((opt, idx) => {
+                      const tally = mcTally[idx];
+                      return (
+                        <div key={idx}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-neutral-700">
+                              {String.fromCharCode(65 + idx)}. {opt}
+                            </span>
+                            <span className="text-sm font-bold text-primary-600">{tally.count} ({tally.percent}%)</span>
+                          </div>
+                          <div className="w-full bg-neutral-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-primary-600 h-full transition-all"
+                              style={{ width: `${tally.percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'word_cloud' && (
+                <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+                  <h5 className="font-semibold text-neutral-900 mb-4">Word Cloud</h5>
+                  <div className="flex flex-wrap gap-3">
+                    {wordCloudTally.slice(0, 15).map(([word, count], idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1.5 bg-primary-100 text-primary-700 rounded-lg font-medium text-sm"
+                        style={{ fontSize: `${0.75 + (count / Math.max(...wordCloudTally.map(x => x[1]))) * 0.5}rem` }}
+                      >
+                        {word} <span className="text-xs opacity-75">({count})</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'short_answer' && (
+                <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+                  <h5 className="font-semibold text-neutral-900 mb-4">Jawaban Peserta ({receivedAnswers.length})</h5>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {receivedAnswers.map((ans, idx) => (
+                      <div key={idx} className="p-2.5 bg-neutral-50 rounded border border-neutral-200 text-sm">
+                        <p className="font-medium text-neutral-900">{ans.participantId || 'Peserta'}</p>
+                        <p className="text-neutral-700 mt-1">{ans.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full">
+            <h3 className="font-serif font-bold text-2xl text-neutral-900 mb-6">Bagikan Kode Ruangan</h3>
+            
+            <div className="bg-neutral-50 p-6 rounded-lg mb-6 flex justify-center">
+              <QRCodeSVG
+                value={joinUrl}
+                size={200}
+                level="H"
+                includeMargin={true}
+                fgColor="#3e1f85"
+                bgColor="#faf9f7"
+              />
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <p className="text-xs text-neutral-600 font-semibold mb-1">Kode PIN:</p>
+                <div className="bg-primary-50 border-2 border-primary-300 rounded-lg px-4 py-3 text-center">
+                  <p className="font-mono font-black text-2xl text-primary-700">{room.code}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 font-semibold mb-1">Atau Buka Link:</p>
+                <input
+                  type="text"
+                  readOnly
+                  value={joinUrl}
+                  className="w-full bg-neutral-100 border border-neutral-300 rounded-lg px-3 py-2 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowQRModal(false)}
+              className="btn-primary w-full"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
                       </button>
                     </div>
                   ))}

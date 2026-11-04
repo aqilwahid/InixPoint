@@ -63,56 +63,65 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-between max-w-lg mx-auto shadow-md">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Header */}
-      <header className="bg-brand-600 text-white px-4 py-3 flex items-center justify-between shadow">
-        <div>
-          <h1 className="font-bold text-lg leading-tight">InixPoint</h1>
-          <p className="text-xs text-brand-100">PIN: <span className="font-mono font-bold tracking-wider">{room.code}</span></p>
+      <header className="bg-white border-b border-neutral-200 px-4 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+        <div className="flex items-center space-x-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center font-serif font-bold text-white text-sm">
+            IP
+          </div>
+          <div>
+            <h1 className="font-serif font-bold text-sm leading-tight text-neutral-900">InixPoint</h1>
+            <p className="text-xs text-neutral-500">PIN: <span className="font-mono font-bold text-primary-600">{room.code}</span></p>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
           <div className="text-right">
-            <span className="text-sm font-semibold block leading-tight">{participantName}</span>
-            <span className="text-xs text-emerald-200 flex items-center justify-end">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block mr-1"></span> Terhubung
+            <span className="text-xs font-semibold text-neutral-700 block">{participantName}</span>
+            <span className="text-xs text-success flex items-center justify-end space-x-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+              <span>Terhubung</span>
             </span>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="p-4 flex-1 flex flex-col justify-center">
+      {/* Main Content */}
+      <main className="flex-1 px-4 py-6 flex flex-col items-center justify-center">
         {!currentQuestion || currentQuestion.status !== 'active' ? (
-          <div className="text-center py-12 px-6 bg-white rounded-2xl shadow-sm border border-slate-200">
-            <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-              <Clock className="w-8 h-8" />
+          <div className="w-full max-w-md text-center">
+            <div className="w-20 h-20 bg-primary-100 text-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <Clock className="w-10 h-10" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Menunggu Kuis</h2>
-            <p className="text-slate-500 text-sm">
-              Presenter sedang menyiapkan materi atau pertanyaan kuis berikutnya. Tetap di halaman ini ya!
+            <h2 className="font-serif font-bold text-2xl text-neutral-900 mb-2">Menunggu Pertanyaan</h2>
+            <p className="text-neutral-600 text-sm mb-6">
+              Presenter sedang menyiapkan materi. Tetap di halaman ini!
             </p>
             {statusMessage && (
-              <p className="mt-4 p-2 text-xs bg-amber-50 text-amber-700 rounded border border-amber-200">
+              <div className="p-3 bg-secondary-50 border border-secondary-200 text-secondary-700 rounded-lg text-sm">
                 {statusMessage}
-              </p>
+              </div>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-3 border-b pb-2">
-              <span className="text-xs uppercase font-bold tracking-wider text-brand-600 bg-brand-50 px-2 py-0.5 rounded">
-                {currentQuestion.type.replace('_', ' ')}
-              </span>
-              <span className="text-xs text-slate-400 flex items-center">
-                <Sparkles className="w-3.5 h-3.5 mr-1 text-amber-500" /> Live
-              </span>
+          <div className="w-full max-w-2xl">
+            {/* Question Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs uppercase font-bold tracking-wider text-primary-700 bg-primary-50 px-3 py-1 rounded-full">
+                  {currentQuestion.type.replace(/_/g, ' ')}
+                </span>
+                <span className="text-xs text-neutral-500 flex items-center space-x-1">
+                  <div className="w-2 h-2 rounded-full bg-primary-600 animate-pulse"></div>
+                  <span>Live</span>
+                </span>
+              </div>
+              <h3 className="font-serif font-bold text-2xl text-neutral-900">{currentQuestion.prompt}</h3>
             </div>
 
-            <h3 className="text-lg font-bold text-slate-800 mb-4">{currentQuestion.prompt}</h3>
-
-            {/* Answer Controls by Type */}
+            {/* Answer Controls */}
             {currentQuestion.type === 'multiple_choice' && (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {currentQuestion.options?.choices.map((choice, idx) => {
                   const letter = String.fromCharCode(65 + idx);
                   const isSelected = submittedAnswer === String(idx);
@@ -122,19 +131,19 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                       type="button"
                       disabled={isSubmitting}
                       onClick={() => handleSubmit(String(idx))}
-                      className={`w-full flex items-center p-3.5 rounded-xl border-2 font-medium text-left transition ${
+                      className={`w-full flex items-center p-4 rounded-lg border-2 font-semibold text-left transition ${
                         isSelected
-                          ? 'border-brand-600 bg-brand-50 text-brand-900 shadow-sm'
-                          : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50 text-slate-700'
+                          ? 'border-primary-600 bg-primary-50 text-primary-900 shadow-md'
+                          : 'border-neutral-200 hover:border-primary-300 hover:bg-neutral-50 text-neutral-900'
                       }`}
                     >
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 font-bold text-sm ${
-                        isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
+                      <span className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 font-serif font-bold text-sm ${
+                        isSelected ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-600'
                       }`}>
                         {letter}
                       </span>
                       <span className="flex-1">{choice}</span>
-                      {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-600 ml-2" />}
+                      {isSelected && <CheckCircle2 className="w-6 h-6 text-primary-600" />}
                     </button>
                   );
                 })}
@@ -142,68 +151,71 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
             )}
 
             {currentQuestion.type === 'word_cloud' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <input
                   type="text"
                   maxLength={30}
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
                   placeholder="Ketik 1-2 kata..."
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-base"
+                  className="input-base w-full text-lg"
                 />
                 <button
                   type="button"
                   disabled={!answerInput.trim() || isSubmitting}
                   onClick={() => handleSubmit(answerInput)}
-                  className="w-full bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl font-bold flex items-center justify-center space-x-2 disabled:opacity-50"
+                  className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{submittedAnswer ? 'Perbarui Kata' : 'Kirim Kata'}</span>
+                  <span>{submittedAnswer ? 'Perbarui' : 'Kirim'}</span>
                 </button>
               </div>
             )}
 
             {currentQuestion.type === 'short_answer' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <textarea
-                  rows={4}
+                  rows={5}
                   maxLength={300}
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
-                  placeholder="Ketik penjelasan jawaban Anda di sini..."
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-base"
+                  placeholder="Tulis jawaban Anda di sini..."
+                  className="input-base w-full"
                 />
                 <button
                   type="button"
                   disabled={!answerInput.trim() || isSubmitting}
                   onClick={() => handleSubmit(answerInput)}
-                  className="w-full bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl font-bold flex items-center justify-center space-x-2 disabled:opacity-50"
+                  className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{submittedAnswer ? 'Kirim Revisi' : 'Kirim Jawaban'}</span>
+                  <span>Kirim Jawaban</span>
                 </button>
               </div>
             )}
 
             {currentQuestion.type === 'slide_drawing' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <DrawingCanvas onSave={(dataUrl) => setAnswerInput(dataUrl)} />
                 <button
                   type="button"
                   disabled={!answerInput || isSubmitting}
                   onClick={() => handleSubmit(answerInput)}
-                  className="w-full bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl font-bold flex items-center justify-center space-x-2 disabled:opacity-50"
+                  className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{submittedAnswer ? 'Kirim Ulang Gambar' : 'Kirim Gambar'}</span>
+                  <span>Kirim Gambar</span>
                 </button>
               </div>
             )}
 
             {submittedAnswer && (
-              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <span>Jawaban Anda telah tersimpan di server presenter.</span>
+              <div className="mt-6 p-4 bg-success/10 border border-success/30 text-success rounded-lg text-sm flex items-start space-x-3">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Jawaban berhasil dikirim!</p>
+                  <p className="text-xs opacity-75 mt-1">Presenter akan menutup pertanyaan segera.</p>
+                </div>
               </div>
             )}
           </div>
@@ -211,11 +223,11 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       </main>
 
       {/* Footer */}
-      <footer className="p-4 text-center">
+      <footer className="border-t border-neutral-200 bg-white px-4 py-3 text-center">
         <button
           type="button"
           onClick={onLeave}
-          className="text-xs text-slate-400 hover:text-slate-600 underline"
+          className="text-xs text-neutral-500 hover:text-neutral-700 font-medium underline"
         >
           Keluar dari Sesi
         </button>

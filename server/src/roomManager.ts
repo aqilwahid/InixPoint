@@ -85,13 +85,47 @@ export class RoomManager {
     const participant = room.participants[participantId];
     if (!participant) return undefined;
 
-    // Check if participant already answered
+    // Initialize stats if not present
+    if (!participant.answeredCount) participant.answeredCount = 0;
+    if (!participant.correctCount) participant.correctCount = 0;
+
+    // Check if participant already answered (prevent duplicate scoring)
     const existingIndex = (room.answers[questionId] || []).findIndex(a => a.participantId === participantId);
-    let isCorrect = undefined;
+    const isNewAnswer = existingIndex < 0;
+
+    // Calculate correctness and points
+    let isCorrect = false;
+    let pointsAwarded = 0;
+    const pointsPerCorrect = question.pointsPerCorrect ?? 10;
 
     if (question.type === 'multiple_choice' && question.options?.hasCorrectAnswer) {
       isCorrect = Number(content) === question.options.correctIndex;
-      if (isCorrect) participant.score += 10;
+      pointsAwarded = isCorrect ? pointsPerCorrect : 0;
+    }
+
+    // Update participant stats (only if new answer)
+    if (isNewAnswer) {
+      participant.answeredCount = (participant.answeredCount || 0) + 1;
+      if (isCorrect) {
+        participant.correctCount = (participant.correctCount || 0) + 1;
+      }
+    } else {
+      // If updating existing answer, recalculate
+      const oldAnswer = room.answers[questionId][existingIndex];
+      if (oldAnswer.isCorrect && !isCorrect) {
+        participant.correctCount = Math.max(0, (participant.correctCount || 0) - 1);
+      } else if (!oldAnswer.isCorrect && isCorrect) {
+        participant.correctCount = (participant.correctCount || 0) + 1;
+      }
+    }
+
+    // Update score
+    if (isNewAnswer) {
+      participant.score += pointsAwarded;
+    } else {
+      // Recalculate score difference
+      const oldPoints = room.answers[questionId][existingIndex].pointsAwarded || 0;
+      participant.score = Math.max(0, participant.score - oldPoints + pointsAwarded);
     }
 
     const answer: Answer = {
@@ -101,7 +135,8 @@ export class RoomManager {
       participantName: participant.name,
       content,
       submittedAt: Date.now(),
-      isCorrect
+      isCorrect,
+      pointsAwarded
     };
 
     if (existingIndex >= 0) {

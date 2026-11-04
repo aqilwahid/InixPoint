@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
 import { Room, Question, Answer } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
+import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send, Sparkles } from 'lucide-react';
 
 interface ParticipantProps {
@@ -207,6 +208,15 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                   <span>Kirim Gambar</span>
                 </button>
               </div>
+            )}
+
+            {currentQuestion.type === 'matching' && (
+              <MatchingQuestion
+                pairs={currentQuestion.options?.pairs || []}
+                onSubmit={(matches) => handleSubmit(JSON.stringify(matches))}
+                submitted={!!submittedAnswer}
+                isSubmitting={isSubmitting}
+              />
             )}
 
             {submittedAnswer && (

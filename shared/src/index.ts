@@ -2,7 +2,9 @@ export type QuestionType =
   | 'multiple_choice'
   | 'word_cloud'
   | 'short_answer'
-  | 'slide_drawing';
+  | 'slide_drawing'
+  | 'matching'
+  | 'ranking';
 
 export interface Participant {
   id: string; // socket.id or user session id
@@ -10,6 +12,8 @@ export interface Participant {
   score: number;
   joinedAt: number;
   connected: boolean;
+  answeredCount?: number; // for leaderboard stats
+  correctCount?: number;
 }
 
 export interface MultipleChoiceOptions {
@@ -18,14 +22,31 @@ export interface MultipleChoiceOptions {
   hasCorrectAnswer?: boolean;
 }
 
+export interface MatchingPair {
+  id: string;
+  left: string;
+  right: string;
+}
+
+export interface MatchingOptions {
+  pairs: MatchingPair[];
+}
+
+export interface RankingOptions {
+  items: string[];
+  correctOrder?: string[]; // optional, for scoring
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
   prompt: string;
-  options?: MultipleChoiceOptions;
+  options?: MultipleChoiceOptions | MatchingOptions | RankingOptions;
   timeLimitSec?: number;
+  timeStartedAt?: number; // for countdown timer
   status: 'pending' | 'active' | 'closed';
   createdAt: number;
+  pointsPerCorrect?: number; // default 1, can be customized
 }
 
 export interface Answer {
@@ -33,9 +54,10 @@ export interface Answer {
   questionId: string;
   participantId: string;
   participantName: string;
-  content: string; // choice index string, word, text response, or canvas data URL
+  content: string; // choice index, word, text, JSON for matching/ranking, or canvas data URL
   submittedAt: number;
   isCorrect?: boolean;
+  pointsAwarded?: number; // actual points given (0 or pointsPerCorrect)
 }
 
 export interface Room {

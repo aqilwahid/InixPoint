@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
 import { Room, Question, Answer, QuestionType } from '@inixpoint/shared';
 import { QRCodeSVG } from 'qrcode.react';
+import { Leaderboard } from './Leaderboard';
 import { 
   Users, 
   BarChart3, 
@@ -382,6 +383,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                   </div>
                 </div>
               )}
+
+              {/* Leaderboard Always Visible */}
+              <Leaderboard participants={Object.values(room.participants || {})} title="📊 Leaderboard Real-time" />
             </div>
           )}
         </main>

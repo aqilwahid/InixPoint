@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run install:all && npm run build:client",
+  "outputDirectory": "client/dist",
+  "nodeVersion": "22.x",
+  "env": {
+    "VITE_API_URL": "@vite_api_url",
+    "VITE_SOCKET_IO_URL": "@vite_socket_io_url"
+  }
+}
+

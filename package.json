@@ -9,6 +9,8 @@
     "dev:client": "npm --prefix client run dev",
     "dev": "npm --prefix server run dev",
     "build": "npm --prefix server run build && npm --prefix client run build",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
     "start": "npm --prefix server run start"
   },
   "keywords": [

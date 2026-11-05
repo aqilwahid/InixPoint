@@ -18,7 +18,17 @@ import {
   Link,
   Plus,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Clock,
+  Volume2,
+  VolumeX,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Maximize2,
+  Quote
 } from 'lucide-react';
 
 interface PresenterProps {
@@ -38,6 +48,12 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   ]);
   const [correctIndex, setCorrectIndex] = useState<number | undefined>(undefined);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showResponses, setShowResponses] = useState(true);
+  const [activeShortAnswerIndex, setActiveShortAnswerIndex] = useState<number | null>(null);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const bgmIntervalRef = React.useRef<any>(null);
   const [receivedAnswers, setReceivedAnswers] = useState<Answer[]>([]);
 
   const participantList = Object.values(room.participants || {});
@@ -102,6 +118,87 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
     };
   }, []);
 
+  // Timer interval for active questions
+  useEffect(() => {
+    if (room.currentQuestion?.status !== 'active') return;
+    const interval = setInterval(() => {
+      setTimerSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [room.currentQuestion?.status]);
+
+  // Keyboard navigation for Short Answer Lightbox Carousel
+  useEffect(() => {
+    if (activeShortAnswerIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveShortAnswerIndex(null);
+      if (e.key === 'ArrowLeft') {
+        setActiveShortAnswerIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : receivedAnswers.length - 1));
+      }
+      if (e.key === 'ArrowRight') {
+        setActiveShortAnswerIndex((prev) => (prev !== null && prev < receivedAnswers.length - 1 ? prev + 1 : 0));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeShortAnswerIndex, receivedAnswers.length]);
+
+  // ponytail: Web Audio synth for classroom quiz ambience; upgrade to audio files if custom MP3 requested
+  useEffect(() => {
+    if (!isBgmPlaying || room.currentQuestion?.status !== 'active') {
+      if (bgmIntervalRef.current) clearInterval(bgmIntervalRef.current);
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+      return;
+    }
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+
+      const notes = [261.63, 329.63, 392.00, 523.25];
+      let noteIdx = 0;
+
+      bgmIntervalRef.current = setInterval(() => {
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(notes[noteIdx % notes.length], ctx.currentTime);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+        noteIdx++;
+      }, 500);
+    } catch {
+      // AudioContext blocked or not supported
+    }
+
+    return () => {
+      if (bgmIntervalRef.current) clearInterval(bgmIntervalRef.current);
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+    };
+  }, [isBgmPlaying, room.currentQuestion?.status]);
+
+  const handleAdd15s = () => {
+    setTimerSeconds((s) => s + 15);
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   const handleStartQuestion = () => {
     if (!promptInput.trim()) {
       alert('Silakan tuliskan pertanyaan/instruksi terlebih dahulu.');
@@ -123,6 +220,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
     };
 
     setReceivedAnswers([]);
+    setTimerSeconds(0);
+    setShowResponses(true);
+    setActiveShortAnswerIndex(null);
     socket.emit('start-question', {
       code: room.code,
       question: questionPayload
@@ -141,6 +241,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
   const handleCloseQuestion = () => {
     if (!room.currentQuestion) return;
+    setIsBgmPlaying(false);
     socket.emit('close-question', {
       code: room.code,
       questionId: room.currentQuestion.id
@@ -461,8 +562,16 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                 <BarChart3 className="w-16 h-16 stroke-1 text-slate-600 mb-2" />
                 <p className="text-base font-semibold text-slate-400">Siap untuk berinteraksi dengan audiens</p>
                 <p className="text-xs max-w-sm mt-1">Pilih tipe kuis di panel atas, ketik pertanyaan, lalu klik tombol "Mulai Kuis Ke Peserta".</p>
+              </div>          ) : !showResponses && room.currentQuestion.status === 'active' ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-900/40 border border-slate-700/60 rounded-xl my-4">
+              <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
+                <EyeOff className="w-7 h-7 text-amber-400" />
               </div>
-            ) : (
+              <h3 className="text-base font-bold text-slate-200">Tampilan Respons Disembunyikan</h3>
+              <p className="text-xs text-slate-400 max-w-md mt-1.5 leading-relaxed">
+                Jawaban peserta tetap tercatat secara rahasia. Tekan tombol <strong className="text-amber-300 font-semibold">Hidden</strong> di dock kontrol bawah untuk menampilkan kembali ke audiens.
+              </p>
+            </div>            ) : (
               <div className="flex-1 overflow-y-auto">
                 {/* MULTIPLE CHOICE VISUALIZER */}
                 {room.currentQuestion.type === 'multiple_choice' && (
@@ -529,21 +638,42 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
                 {/* SHORT ANSWER FEED */}
                 {room.currentQuestion.type === 'short_answer' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-2">
-                    {receivedAnswers.length === 0 ? (
-                      <p className="col-span-full text-center text-xs text-slate-500 py-8">
-                        Menunggu jawaban teks dari audiens...
-                      </p>
-                    ) : (
-                      receivedAnswers.map((ans) => (
-                        <div key={ans.id} className="bg-slate-700/60 border border-slate-600 p-3.5 rounded-xl flex flex-col justify-between">
-                          <p className="text-sm text-slate-100 whitespace-pre-wrap">{ans.content}</p>
-                          <span className="text-xs text-brand-300 font-semibold mt-3 block text-right">
-                            — {ans.participantName}
-                          </span>
-                        </div>
-                      ))
-                    )}
+                  <div className="space-y-3 p-1">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-xs text-slate-400 font-semibold">
+                        💡 Klik kartu untuk zoom proyektor & navigasi carousel
+                      </span>
+                      <span className="text-xs text-brand-300 font-mono font-bold bg-slate-700/60 px-2 py-0.5 rounded-md">
+                        {receivedAnswers.length} Jawaban
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {receivedAnswers.length === 0 ? (
+                        <p className="col-span-full text-center text-xs text-slate-500 py-8">
+                          Menunggu jawaban teks dari audiens...
+                        </p>
+                      ) : (
+                        receivedAnswers.map((ans, idx) => (
+                          <div 
+                            key={ans.id} 
+                            onClick={() => setActiveShortAnswerIndex(idx)}
+                            className="group bg-slate-700/60 hover:bg-slate-700 border border-slate-600 hover:border-amber-400/60 p-3.5 rounded-xl flex flex-col justify-between cursor-pointer transition shadow hover:shadow-lg relative"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <Quote className="w-4 h-4 text-amber-400/80 rotate-180" />
+                              <span className="text-[10px] text-slate-400 group-hover:text-amber-300 flex items-center">
+                                <Maximize2 className="w-3 h-3 mr-1" /> Zoom
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-100 whitespace-pre-wrap line-clamp-4">{ans.content}</p>
+                            <span className="text-xs text-brand-300 font-semibold mt-3 block text-right">
+                              — {ans.participantName}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -668,6 +798,75 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                 />
               </div>
             )}
+
+            {/* Universal Live Toolbar Dock (ClassPoint Style) */}
+            {room.currentQuestion?.status === 'active' && (
+              <div className="sticky bottom-0 mt-6 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 shadow-2xl rounded-2xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 z-20">
+                {/* Left: Live Participants Counter & Timer */}
+                <div className="flex items-center space-x-3 text-xs">
+                  <div className="flex items-center space-x-1.5 text-slate-300 font-semibold bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+                    <Users className="w-3.5 h-3.5 text-brand-400" />
+                    <span>{receivedAnswers.length} / {participantList.length}</span>
+                  </div>
+
+                  <div className="flex items-center space-x-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 font-mono text-emerald-400 font-bold">
+                    <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{formatTime(timerSeconds)}</span>
+                    <button
+                      type="button"
+                      onClick={handleAdd15s}
+                      className="ml-2 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-0.5 rounded font-sans font-semibold transition"
+                      title="Tambah 15 detik"
+                    >
+                      +15s
+                    </button>
+                  </div>
+                </div>
+
+                {/* Center: Close submission action button */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCloseQuestion}
+                    className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm px-6 py-2.5 rounded-xl shadow-lg transition flex items-center space-x-2"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-white" />
+                    <span>Close submission</span>
+                  </button>
+                </div>
+
+                {/* Right: Responses Hide/Show & Music Ambience */}
+                <div className="flex items-center space-x-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowResponses(prev => !prev)}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border font-semibold transition ${
+                      showResponses
+                        ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
+                    }`}
+                    title={showResponses ? 'Sembunyikan jawaban di proyektor' : 'Tampilkan kembali jawaban'}
+                  >
+                    {showResponses ? <Eye className="w-3.5 h-3.5 text-brand-400" /> : <EyeOff className="w-3.5 h-3.5 text-amber-400" />}
+                    <span>{showResponses ? 'Responses' : 'Hidden'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBgmPlaying(prev => !prev)}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border font-semibold transition ${
+                      isBgmPlaying
+                        ? 'bg-brand-600 border-brand-500 text-white shadow'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                    }`}
+                    title={isBgmPlaying ? 'Matikan musik' : 'Putar audio ambience kuis'}
+                  >
+                    {isBgmPlaying ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    <span>Music</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
 
@@ -728,6 +927,82 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
             >
               Tutup Layar PIN
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Short Answer Zoom Carousel Lightbox (ClassPoint Modal Style) */}
+      {activeShortAnswerIndex !== null && receivedAnswers[activeShortAnswerIndex] && (
+        <div 
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+          onClick={() => setActiveShortAnswerIndex(null)}
+        >
+          <div 
+            className="relative max-w-2xl w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar Header */}
+            <div className="w-full flex items-center justify-between text-slate-300 text-xs font-semibold mb-3 px-2">
+              <span className="uppercase tracking-wider text-brand-300">
+                Short Answer • Respons {activeShortAnswerIndex + 1} dari {receivedAnswers.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveShortAnswerIndex(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Tutup (Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Main Lightbox Card (ClassPoint Warm Pastel Note Style) */}
+            <div className="relative w-full bg-[#fef9c3] text-slate-900 border-4 border-amber-300/80 rounded-3xl p-8 sm:p-12 shadow-2xl flex flex-col items-center justify-between min-h-[340px]">
+              {/* Quote Icon */}
+              <div className="text-amber-700/60 mb-3">
+                <Quote className="w-12 h-12 rotate-180" />
+              </div>
+
+              {/* Answer Content */}
+              <p className="text-xl sm:text-2xl font-serif text-center font-bold text-slate-900 leading-relaxed max-h-[360px] overflow-y-auto px-2">
+                {receivedAnswers[activeShortAnswerIndex].content}
+              </p>
+
+              {/* Participant Name Badge */}
+              <div className="mt-8 pt-4 border-t border-amber-300/60 w-full flex items-center justify-center space-x-2">
+                <span className="w-8 h-8 bg-amber-300 text-amber-900 rounded-full flex items-center justify-center font-black text-xs shadow-sm">
+                  {receivedAnswers[activeShortAnswerIndex].participantName.charAt(0).toUpperCase()}
+                </span>
+                <span className="text-base font-bold text-amber-950 font-sans">
+                  {receivedAnswers[activeShortAnswerIndex].participantName}
+                </span>
+              </div>
+            </div>
+
+            {/* Carousel Navigation Buttons & Counter */}
+            <div className="flex items-center space-x-6 mt-6">
+              <button
+                type="button"
+                onClick={() => setActiveShortAnswerIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : receivedAnswers.length - 1))}
+                className="w-12 h-12 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center justify-center transition border border-slate-600 shadow-xl"
+                title="Jawaban sebelumnya (Arrow Left)"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              <span className="text-sm text-slate-200 font-mono font-bold bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700">
+                {activeShortAnswerIndex + 1} / {receivedAnswers.length}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setActiveShortAnswerIndex((prev) => (prev !== null && prev < receivedAnswers.length - 1 ? prev + 1 : 0))}
+                className="w-12 h-12 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center justify-center transition border border-slate-600 shadow-xl"
+                title="Jawaban selanjutnya (Arrow Right)"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       )}

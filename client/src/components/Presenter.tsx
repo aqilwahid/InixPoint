@@ -14,7 +14,8 @@ import {
   Download, 
   QrCode,
   Sparkles,
-  Trophy
+  Trophy,
+  Link
 } from 'lucide-react';
 
 interface PresenterProps {
@@ -258,6 +259,19 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               >
                 <PenTool className="w-4 h-4" />
                 <span>Slide Drawing</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('matching')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                  activeTab === 'matching' 
+                    ? 'bg-brand-600 text-white shadow-md' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                }`}
+              >
+                <Link className="w-4 h-4" />
+                <span>Matching</span>
               </button>
             </div>
 

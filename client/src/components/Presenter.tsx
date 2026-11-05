@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, Answer, QuestionType } from '@inixpoint/shared';
+import { 
+  Room, 
+  Question, 
+  Answer, 
+  QuestionType,
+  QuickPollTemplate,
+  QuickPollOptions,
+  QuickPollOptionItem
+} from '@inixpoint/shared';
 import { QRCodeSVG } from 'qrcode.react';
 import { Leaderboard } from './Leaderboard';
 import { 
@@ -16,6 +24,7 @@ import {
   Sparkles,
   Trophy,
   Link,
+  Vote,
   Plus,
   Trash2,
   CheckCircle2,
@@ -36,6 +45,44 @@ interface PresenterProps {
   onExit: () => void;
 }
 
+const POLL_TEMPLATES: Record<QuickPollTemplate, { name: string; options: QuickPollOptionItem[] }> = {
+  likert_5: {
+    name: 'Skala Likert (5 Tingkat)',
+    options: [
+      { id: 'strongly_agree', label: 'Strongly agree', emoji: '😃', color: '#10b981' },
+      { id: 'agree', label: 'Agree', emoji: '🙂', color: '#84cc16' },
+      { id: 'neutral', label: 'Neutral', emoji: '😐', color: '#f59e0b' },
+      { id: 'disagree', label: 'Disagree', emoji: '🙁', color: '#f97316' },
+      { id: 'strongly_disagree', label: 'Strongly disagree', emoji: '😡', color: '#ef4444' }
+    ]
+  },
+  yes_no: {
+    name: 'Ya / Tidak / Ragu',
+    options: [
+      { id: 'yes', label: 'Ya / Setuju', emoji: '👍', color: '#10b981' },
+      { id: 'no', label: 'Tidak', emoji: '👎', color: '#ef4444' },
+      { id: 'unsure', label: 'Belum Yakin', emoji: '🤔', color: '#f59e0b' }
+    ]
+  },
+  true_false: {
+    name: 'Benar / Salah',
+    options: [
+      { id: 'true', label: 'Benar', emoji: '✅', color: '#10b981' },
+      { id: 'false', label: 'Salah', emoji: '❌', color: '#ef4444' }
+    ]
+  },
+  rating_5: {
+    name: 'Rating Bintang (1 - 5)',
+    options: [
+      { id: '5', label: 'Sangat Baik (5★)', emoji: '🌟', color: '#f59e0b' },
+      { id: '4', label: 'Baik (4★)', emoji: '⭐', color: '#84cc16' },
+      { id: '3', label: 'Cukup (3★)', emoji: '⭐', color: '#3b82f6' },
+      { id: '2', label: 'Kurang (2★)', emoji: '⭐', color: '#f97316' },
+      { id: '1', label: 'Sangat Kurang (1★)', emoji: '⭐', color: '#ef4444' }
+    ]
+  }
+};
+
 export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit }) => {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [activeTab, setActiveTab] = useState<QuestionType>('multiple_choice');
@@ -46,6 +93,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
     { id: '2', left: 'Jepang', right: 'Tokyo' },
     { id: '3', left: 'Perancis', right: 'Paris' }
   ]);
+  const [pollTemplate, setPollTemplate] = useState<QuickPollTemplate>('likert_5');
   const [correctIndex, setCorrectIndex] = useState<number | undefined>(undefined);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showResponses, setShowResponses] = useState(true);
@@ -207,14 +255,15 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   };
 
   const handleStartQuestion = () => {
-    if (!promptInput.trim()) {
+    const finalPrompt = promptInput.trim() || (activeTab === 'quick_poll' ? 'Bagaimana pendapat atau pilihan Anda?' : '');
+    if (!finalPrompt) {
       alert('Silakan tuliskan pertanyaan/instruksi terlebih dahulu.');
       return;
     }
 
     const questionPayload: Omit<Question, 'id' | 'status' | 'createdAt'> = {
       type: activeTab,
-      prompt: promptInput.trim(),
+      prompt: finalPrompt,
       options: activeTab === 'multiple_choice' ? {
         choices: optionsInput.filter(o => o.trim().length > 0),
         correctIndex,
@@ -223,6 +272,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
         pairs: matchingPairs
           .filter(p => p.left.trim() && p.right.trim())
           .map((p, idx) => ({ id: `pair_${idx + 1}`, left: p.left.trim(), right: p.right.trim() }))
+      } : activeTab === 'quick_poll' ? {
+        template: pollTemplate,
+        options: POLL_TEMPLATES[pollTemplate].options
       } : undefined
     };
 
@@ -347,11 +399,11 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
               <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => setActiveTab('multiple_choice')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'multiple_choice' 
                     ? 'bg-brand-600 text-white shadow-md' 
                     : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
@@ -364,7 +416,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               <button
                 type="button"
                 onClick={() => setActiveTab('word_cloud')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'word_cloud' 
                     ? 'bg-brand-600 text-white shadow-md' 
                     : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
@@ -377,7 +429,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               <button
                 type="button"
                 onClick={() => setActiveTab('short_answer')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'short_answer' 
                     ? 'bg-brand-600 text-white shadow-md' 
                     : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
@@ -390,20 +442,20 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               <button
                 type="button"
                 onClick={() => setActiveTab('slide_drawing')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'slide_drawing' 
                     ? 'bg-brand-600 text-white shadow-md' 
                     : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                 }`}
               >
                 <PenTool className="w-4 h-4" />
-                <span>Slide Drawing</span>
+                <span>Drawing</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('matching')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'matching' 
                     ? 'bg-brand-600 text-white shadow-md' 
                     : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
@@ -411,6 +463,19 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               >
                 <Link className="w-4 h-4" />
                 <span>Matching</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('quick_poll')}
+                className={`col-span-2 sm:col-span-1 flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
+                  activeTab === 'quick_poll' 
+                    ? 'bg-brand-600 text-white shadow-md' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                }`}
+              >
+                <Vote className="w-4 h-4" />
+                <span>Quick Poll</span>
               </button>
             </div>
 
@@ -514,6 +579,57 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'quick_poll' && (
+                <div className="space-y-3 pt-1">
+                  <div className="text-xs text-slate-400 font-semibold px-1">
+                    Pilih Format Polling Cepat:
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(Object.keys(POLL_TEMPLATES) as QuickPollTemplate[]).map((tplKey) => {
+                      const tpl = POLL_TEMPLATES[tplKey];
+                      const isSelected = pollTemplate === tplKey;
+                      return (
+                        <button
+                          key={tplKey}
+                          type="button"
+                          onClick={() => setPollTemplate(tplKey)}
+                          className={`p-2.5 rounded-xl border text-left transition ${
+                            isSelected
+                              ? 'bg-brand-600/30 border-brand-500 text-white shadow-sm'
+                              : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <p className="font-bold text-xs">{tpl.name}</p>
+                          <div className="flex space-x-1 mt-1 text-sm">
+                            {tpl.options.slice(0, 4).map((o) => (
+                              <span key={o.id}>{o.emoji}</span>
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Preview of options */}
+                  <div className="p-3 bg-slate-900/60 border border-slate-700/80 rounded-xl">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      Opsi Yang Akan Ditampilkan ke Peserta:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {POLL_TEMPLATES[pollTemplate].options.map((opt) => (
+                        <span
+                          key={opt.id}
+                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-200"
+                        >
+                          <span>{opt.emoji}</span>
+                          <span className="font-medium">{opt.label}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -793,12 +909,40 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                     </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Leaderboard Section - Always Visible */}
-            {room.currentQuestion && (
-              <div className="mt-6">
+                {/* QUICK POLL RESULTS VISUALIZER (ClassPoint Style) */}
+                {room.currentQuestion.type === 'quick_poll' && (
+                  <div className="space-y-4 py-4 max-w-2xl mx-auto">
+                    {((room.currentQuestion.options as QuickPollOptions)?.options || []).map((opt) => {
+                      const count = receivedAnswers.filter(a => a.content === opt.id).length;
+                      const total = receivedAnswers.length;
+                      const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+                      return (
+                        <div key={opt.id} className="space-y-1.5 bg-slate-900/40 border border-slate-700/80 p-3.5 rounded-2xl">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-2xl flex-shrink-0">{opt.emoji}</span>
+                              <span className="font-semibold text-slate-100">{opt.label}</span>
+                            </div>
+                            <span className="font-mono text-xs font-bold text-slate-300">
+                              {count} suara ({percent}%)
+                            </span>
+                          </div>
+
+                          <div className="w-full bg-slate-800 h-5 rounded-full overflow-hidden p-0.5">
+                            <div
+                              className="h-full rounded-full transition-all duration-500 shadow-sm"
+                              style={{ 
+                                width: `${percent}%`,
+                                backgroundColor: opt.color || '#6366f1'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <Leaderboard 
                   participants={Object.values(room.participants || {})} 
                   title="🏆 Live Leaderboard" 

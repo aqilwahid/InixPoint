@@ -118,6 +118,9 @@ export class RoomManager {
           pointsAwarded = 0;
         }
       }
+    } else if (question.type === 'quick_poll') {
+      isCorrect = true;
+      pointsAwarded = question.pointsPerCorrect ?? 5;
     }
 
     // Calculate response speed and gamification stars

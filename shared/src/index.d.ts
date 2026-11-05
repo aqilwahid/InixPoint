@@ -4,7 +4,8 @@ export type QuestionType =
   | 'short_answer' 
   | 'slide_drawing'
   | 'matching'
-  | 'ranking';
+  | 'ranking'
+  | 'quick_poll';
 
 export interface Participant {
   id: string; // socket.id or user session id
@@ -40,11 +41,25 @@ export interface RankingOptions {
   correctOrder?: string[]; // optional, for scoring
 }
 
+export type QuickPollTemplate = 'likert_5' | 'yes_no' | 'true_false' | 'rating_5';
+
+export interface QuickPollOptionItem {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+}
+
+export interface QuickPollOptions {
+  template: QuickPollTemplate;
+  options: QuickPollOptionItem[];
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
   prompt: string;
-  options?: MultipleChoiceOptions | MatchingOptions | RankingOptions;
+  options?: MultipleChoiceOptions | MatchingOptions | RankingOptions | QuickPollOptions;
   timeLimitSec?: number;
   timeStartedAt?: number; // for countdown timer
   status: 'pending' | 'active' | 'closed';

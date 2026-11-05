@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, MultipleChoiceOptions, MatchingOptions } from '@inixpoint/shared';
+import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send } from 'lucide-react';
@@ -217,6 +217,40 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                 submitted={!!submittedAnswer}
                 isSubmitting={isSubmitting}
               />
+            )}
+
+            {currentQuestion.type === 'quick_poll' && (
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                  Pilih salah satu tanggapan Anda:
+                </p>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {((currentQuestion.options as QuickPollOptions)?.options || []).map((opt) => {
+                    const isSelected = submittedAnswer === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleSubmit(opt.id)}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 font-semibold text-left transition ${
+                          isSelected
+                            ? 'border-brand-600 bg-brand-50 text-brand-900 shadow-md ring-2 ring-brand-300'
+                            : 'border-neutral-200 bg-white hover:border-brand-300 hover:bg-neutral-50 text-neutral-800'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl sm:text-3xl">{opt.emoji}</span>
+                          <span className="text-sm sm:text-base font-bold">{opt.label}</span>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-5 h-5 text-brand-600 flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {submittedAnswer && (

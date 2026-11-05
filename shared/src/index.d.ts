@@ -14,6 +14,9 @@ export interface Participant {
   connected: boolean;
   answeredCount?: number; // for leaderboard stats
   correctCount?: number;
+  stars?: number; // gamification stars
+  totalResponseTimeMs?: number;
+  averageSpeedSec?: number; // average response speed in seconds
 }
 
 export interface MultipleChoiceOptions {
@@ -58,6 +61,8 @@ export interface Answer {
   submittedAt: number;
   isCorrect?: boolean;
   pointsAwarded?: number; // actual points given (0 or pointsPerCorrect)
+  responseDurationSec?: number; // speed in seconds
+  starsEarned?: number;
 }
 
 export interface Room {

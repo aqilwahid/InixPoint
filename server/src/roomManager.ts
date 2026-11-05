@@ -120,19 +120,30 @@ export class RoomManager {
       }
     }
 
+    // Calculate response speed and gamification stars
+    const startTime = question.timeStartedAt || question.createdAt;
+    const durationMs = Math.max(300, Date.now() - startTime);
+    const responseDurationSec = Number((durationMs / 1000).toFixed(1));
+    const starsEarned = isCorrect ? 2 : 1;
+
     // Update participant stats (only if new answer)
     if (isNewAnswer) {
       participant.answeredCount = (participant.answeredCount || 0) + 1;
       if (isCorrect) {
         participant.correctCount = (participant.correctCount || 0) + 1;
       }
+      participant.stars = (participant.stars || 0) + starsEarned;
+      participant.totalResponseTimeMs = (participant.totalResponseTimeMs || 0) + durationMs;
+      participant.averageSpeedSec = Number(((participant.totalResponseTimeMs / participant.answeredCount) / 1000).toFixed(1));
     } else {
       // If updating existing answer, recalculate
       const oldAnswer = room.answers[questionId][existingIndex];
       if (oldAnswer.isCorrect && !isCorrect) {
         participant.correctCount = Math.max(0, (participant.correctCount || 0) - 1);
+        participant.stars = Math.max(0, (participant.stars || 0) - 1);
       } else if (!oldAnswer.isCorrect && isCorrect) {
         participant.correctCount = (participant.correctCount || 0) + 1;
+        participant.stars = (participant.stars || 0) + 1;
       }
     }
 
@@ -153,7 +164,9 @@ export class RoomManager {
       content,
       submittedAt: Date.now(),
       isCorrect,
-      pointsAwarded
+      pointsAwarded,
+      responseDurationSec,
+      starsEarned
     };
 
     if (existingIndex >= 0) {

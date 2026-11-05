@@ -95,6 +95,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
         setRoom(prev => {
           const p = prev.participants[ans.participantId];
           if (!p) return prev;
+          const newAnsweredCount = (p.answeredCount || 0) + 1;
+          const starsEarned = ans.starsEarned ?? (ans.isCorrect ? 2 : 1);
+          const totalMs = (p.totalResponseTimeMs || 0) + ((ans.responseDurationSec || 2) * 1000);
+          const avgSpeed = Number(((totalMs / newAnsweredCount) / 1000).toFixed(1));
           return {
             ...prev,
             participants: {
@@ -102,8 +106,11 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
               [ans.participantId]: {
                 ...p,
                 score: (p.score || 0) + (ans.pointsAwarded || 0),
-                answeredCount: (p.answeredCount || 0) + 1,
-                correctCount: (p.correctCount || 0) + (ans.isCorrect ? 1 : 0)
+                answeredCount: newAnsweredCount,
+                correctCount: (p.correctCount || 0) + (ans.isCorrect ? 1 : 0),
+                stars: (p.stars || 0) + starsEarned,
+                totalResponseTimeMs: totalMs,
+                averageSpeedSec: avgSpeed
               }
             }
           };

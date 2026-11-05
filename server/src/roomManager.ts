@@ -1,4 +1,4 @@
-import { Room, Participant, Question, Answer } from '@inixpoint/shared';
+import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions } from '@inixpoint/shared';
 import { saveRoomReport } from './db.js';
 
 export class RoomManager {
@@ -98,9 +98,26 @@ export class RoomManager {
     let pointsAwarded = 0;
     const pointsPerCorrect = question.pointsPerCorrect ?? 10;
 
-    if (question.type === 'multiple_choice' && question.options?.hasCorrectAnswer) {
-      isCorrect = Number(content) === question.options.correctIndex;
-      pointsAwarded = isCorrect ? pointsPerCorrect : 0;
+    if (question.type === 'multiple_choice' && question.options) {
+      const mcOptions = question.options as MultipleChoiceOptions;
+      if (mcOptions.hasCorrectAnswer) {
+        isCorrect = Number(content) === mcOptions.correctIndex;
+        pointsAwarded = isCorrect ? pointsPerCorrect : 0;
+      }
+    } else if (question.type === 'matching' && question.options) {
+      const matchOptions = question.options as MatchingOptions;
+      if (matchOptions.pairs && matchOptions.pairs.length > 0) {
+        try {
+          const userMatches: Record<string, string> = JSON.parse(content);
+          const pairs = matchOptions.pairs;
+          const correctCount = pairs.filter(p => userMatches[p.id] === p.right).length;
+          isCorrect = correctCount === pairs.length;
+          pointsAwarded = isCorrect ? pointsPerCorrect : Math.round((correctCount / pairs.length) * pointsPerCorrect);
+        } catch {
+          isCorrect = false;
+          pointsAwarded = 0;
+        }
+      }
     }
 
     // Update participant stats (only if new answer)

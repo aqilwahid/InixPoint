@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
-import { Room } from '@inixpoint/shared';
+import type { Room } from '@inixpoint/shared';
 
 // ponytail: single local sqlite file for persistent reports; upgrade to postgres when distributed
 const dbPath = path.resolve(process.cwd(), 'inixpoint.sqlite');

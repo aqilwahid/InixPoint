@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, Answer } from '@inixpoint/shared';
+import { Room, Question, MultipleChoiceOptions, MatchingOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
-import { CheckCircle2, Clock, Send, Sparkles } from 'lucide-react';
+import { CheckCircle2, Clock, Send } from 'lucide-react';
 
 interface ParticipantProps {
   room: Room;
@@ -12,7 +12,7 @@ interface ParticipantProps {
 }
 
 export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, participantName, onLeave }) => {
-  const [room, setRoom] = useState<Room>(initialRoom);
+  const [room] = useState<Room>(initialRoom);
   const [currentQuestion, setCurrentQuestion] = useState<Question | undefined>(initialRoom.currentQuestion);
   const [answerInput, setAnswerInput] = useState<string>('');
   const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
     });
 
     socket.on('question-closed', () => {
-      setCurrentQuestion((prev) => prev ? { ...prev, status: 'closed' } : undefined);
+      setCurrentQuestion((prev: Question | undefined) => prev ? { ...prev, status: 'closed' } : undefined);
       setStatusMessage('Pertanyaan telah ditutup oleh presenter.');
     });
 
@@ -52,7 +52,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       code: room.code,
       questionId: currentQuestion.id,
       content: content.trim()
-    }, (res) => {
+    }, (res: any) => {
       setIsSubmitting(false);
       if (res.success) {
         setSubmittedAnswer(content);
@@ -123,7 +123,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
             {/* Answer Controls */}
             {currentQuestion.type === 'multiple_choice' && (
               <div className="space-y-3">
-                {currentQuestion.options?.choices.map((choice, idx) => {
+                {(currentQuestion.options as MultipleChoiceOptions)?.choices?.map((choice: string, idx: number) => {
                   const letter = String.fromCharCode(65 + idx);
                   const isSelected = submittedAnswer === String(idx);
                   return (
@@ -212,7 +212,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
 
             {currentQuestion.type === 'matching' && (
               <MatchingQuestion
-                pairs={currentQuestion.options?.pairs || []}
+                pairs={(currentQuestion.options as MatchingOptions)?.pairs || []}
                 onSubmit={(matches) => handleSubmit(JSON.stringify(matches))}
                 submitted={!!submittedAnswer}
                 isSubmitting={isSubmitting}

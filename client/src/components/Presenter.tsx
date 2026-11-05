@@ -15,7 +15,10 @@ import {
   QrCode,
   Sparkles,
   Trophy,
-  Link
+  Link,
+  Plus,
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface PresenterProps {
@@ -28,6 +31,11 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   const [activeTab, setActiveTab] = useState<QuestionType>('multiple_choice');
   const [promptInput, setPromptInput] = useState('');
   const [optionsInput, setOptionsInput] = useState(['Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D']);
+  const [matchingPairs, setMatchingPairs] = useState<Array<{ id: string; left: string; right: string }>>([
+    { id: '1', left: 'Indonesia', right: 'Jakarta' },
+    { id: '2', left: 'Jepang', right: 'Tokyo' },
+    { id: '3', left: 'Perancis', right: 'Paris' }
+  ]);
   const [correctIndex, setCorrectIndex] = useState<number | undefined>(undefined);
   const [showQRModal, setShowQRModal] = useState(false);
   const [receivedAnswers, setReceivedAnswers] = useState<Answer[]>([]);
@@ -66,6 +74,25 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
         }
         return [...prev, ans];
       });
+
+      if (ans.pointsAwarded !== undefined) {
+        setRoom(prev => {
+          const p = prev.participants[ans.participantId];
+          if (!p) return prev;
+          return {
+            ...prev,
+            participants: {
+              ...prev.participants,
+              [ans.participantId]: {
+                ...p,
+                score: (p.score || 0) + (ans.pointsAwarded || 0),
+                answeredCount: (p.answeredCount || 0) + 1,
+                correctCount: (p.correctCount || 0) + (ans.isCorrect ? 1 : 0)
+              }
+            }
+          };
+        });
+      }
     });
 
     return () => {
@@ -88,6 +115,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
         choices: optionsInput.filter(o => o.trim().length > 0),
         correctIndex,
         hasCorrectAnswer: correctIndex !== undefined
+      } : activeTab === 'matching' ? {
+        pairs: matchingPairs
+          .filter(p => p.left.trim() && p.right.trim())
+          .map((p, idx) => ({ id: `pair_${idx + 1}`, left: p.left.trim(), right: p.right.trim() }))
       } : undefined
     };
 
@@ -319,6 +350,66 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                 </div>
               )}
 
+              {activeTab === 'matching' && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex justify-between items-center text-xs text-slate-400 font-semibold px-1">
+                    <span>Pasangan Kuis (Kiri ↔ Kanan Kunci)</span>
+                    {matchingPairs.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setMatchingPairs(prev => [...prev, { id: String(Date.now()), left: '', right: '' }])}
+                        className="text-brand-400 hover:text-brand-300 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Pasangan</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {matchingPairs.map((pair, idx) => (
+                      <div key={pair.id} className="flex items-center space-x-2">
+                        <span className="w-6 h-6 bg-slate-700 rounded text-center text-xs font-bold text-brand-300 flex items-center justify-center flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={pair.left}
+                          placeholder="Item kiri..."
+                          onChange={(e) => {
+                            const next = [...matchingPairs];
+                            next[idx] = { ...next[idx], left: e.target.value };
+                            setMatchingPairs(next);
+                          }}
+                          className="flex-1 bg-slate-900 border border-slate-700 text-sm px-3 py-1.5 rounded-lg text-white placeholder-slate-500"
+                        />
+                        <span className="text-slate-500 font-bold">↔</span>
+                        <input
+                          type="text"
+                          value={pair.right}
+                          placeholder="Pasangan benar..."
+                          onChange={(e) => {
+                            const next = [...matchingPairs];
+                            next[idx] = { ...next[idx], right: e.target.value };
+                            setMatchingPairs(next);
+                          }}
+                          className="flex-1 bg-slate-900 border border-slate-700 text-sm px-3 py-1.5 rounded-lg text-white placeholder-slate-500"
+                        />
+                        {matchingPairs.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setMatchingPairs(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition"
+                            title="Hapus baris"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 {room.currentQuestion?.status === 'active' ? (
                   <button
@@ -477,6 +568,92 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                         </div>
                       ))
                     )}
+                  </div>
+                )}
+
+                {/* MATCHING RESULTS DISPLAY */}
+                {room.currentQuestion.type === 'matching' && (
+                  <div className="space-y-6 py-2">
+                    {/* Answer Key Grid */}
+                    <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-brand-400 mb-3 flex items-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                        Kunci Pasangan yang Benar
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        {matchingPairs.filter(p => p.left && p.right).map((pair, idx) => (
+                          <div key={idx} className="bg-slate-800/80 border border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-200">{pair.left}</span>
+                            <span className="text-slate-500 font-bold mx-2">↔</span>
+                            <span className="font-semibold text-emerald-400">{pair.right}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Participant Responses List */}
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Respons Peserta ({receivedAnswers.length})
+                        </p>
+                        <span className="text-xs text-slate-400">
+                          {receivedAnswers.filter(a => a.isCorrect).length} dari {receivedAnswers.length} menjawab 100% tepat
+                        </span>
+                      </div>
+
+                      {receivedAnswers.length === 0 ? (
+                        <p className="text-center text-xs text-slate-500 py-8">
+                          Menunggu peserta mencocokkan pasangan...
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {receivedAnswers.map((ans) => {
+                            let parsed: Record<string, string> = {};
+                            try {
+                              parsed = JSON.parse(ans.content);
+                            } catch {
+                              parsed = {};
+                            }
+                            return (
+                              <div 
+                                key={ans.id} 
+                                className={`border p-3.5 rounded-xl flex flex-col justify-between ${
+                                  ans.isCorrect 
+                                    ? 'bg-emerald-950/20 border-emerald-500/40' 
+                                    : 'bg-slate-800/80 border-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-bold text-sm text-slate-200">{ans.participantName}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                    ans.isCorrect 
+                                      ? 'bg-emerald-500/20 text-emerald-300' 
+                                      : 'bg-brand-500/20 text-brand-300'
+                                  }`}>
+                                    +{ans.pointsAwarded ?? 0} Poin {ans.isCorrect && '✓'}
+                                  </span>
+                                </div>
+                                <div className="space-y-1 text-xs">
+                                  {matchingPairs.filter(p => p.left && p.right).map((pair) => {
+                                    const userChoice = parsed[pair.id];
+                                    const matchCorrect = userChoice === pair.right;
+                                    return (
+                                      <div key={pair.id} className="flex justify-between items-center text-slate-300">
+                                        <span className="truncate">{pair.left} → {userChoice || '—'}</span>
+                                        <span className={matchCorrect ? 'text-emerald-400 font-bold ml-2' : 'text-rose-400 ml-2'}>
+                                          {matchCorrect ? '✓' : '✕'}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

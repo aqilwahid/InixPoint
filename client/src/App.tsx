@@ -3,7 +3,7 @@ import { socket } from './lib/socket';
 import { Room } from '@inixpoint/shared';
 import { Presenter } from './components/Presenter';
 import { Participant } from './components/Participant';
-import { Sparkles, Users, Presentation, ArrowRight } from 'lucide-react';
+import { Users, Presentation, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [mode, setMode] = useState<'landing' | 'presenter' | 'participant'>('landing');
@@ -32,7 +32,7 @@ export const App: React.FC = () => {
     setLoading(true);
     setErrorMessage('');
 
-    socket.emit('create-room', { title: createTitle }, (res) => {
+    socket.emit('create-room', { title: createTitle }, (res: any) => {
       setLoading(false);
       if (res.success && res.room) {
         setRoom(res.room);
@@ -53,7 +53,7 @@ export const App: React.FC = () => {
     setLoading(true);
     setErrorMessage('');
 
-    socket.emit('join-room', { code: joinCode.trim(), name: joinName.trim() }, (res) => {
+    socket.emit('join-room', { code: joinCode.trim(), name: joinName.trim() }, (res: any) => {
       setLoading(false);
       if (res.success && res.room) {
         setRoom(res.room);

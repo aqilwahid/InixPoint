@@ -9,7 +9,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled }
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#0284c7');
-  const [lineWidth, setLineWidth] = useState(4);
+  const [lineWidth] = useState(4);
   const [hasDrawn, setHasDrawn] = useState(false);
 
   useEffect(() => {

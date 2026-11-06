@@ -1,4 +1,4 @@
-import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions, QnaItem } from '@inixpoint/shared';
+import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions, RankingOptions, QnaItem } from '@inixpoint/shared';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { saveRoomReport } from './db.js';
 
@@ -193,6 +193,21 @@ export class RoomManager {
           pointsAwarded = 0;
         }
       }
+      } else if (question.type === 'ranking' && question.options) {
+      const ranking = question.options as RankingOptions;
+      try {
+      const order: string[] = JSON.parse(content);
+      const expected = ranking.correctOrder || ranking.items;
+      if (Array.isArray(order) && order.length === expected.length && new Set(order).size === order.length && order.every(item => expected.includes(item))) {
+      const correctCount = order.filter((item, index) => item === expected[index]).length;
+      isCorrect = correctCount === expected.length;
+      pointsAwarded = Math.round((correctCount / expected.length) * pointsPerCorrect);
+      }
+      } catch { /* invalid ranking is not graded */ }
+      } else if (question.type === 'short_answer' && question.correctAnswers?.length) {
+      const normalized = content.trim().toLocaleLowerCase();
+      isCorrect = question.correctAnswers.some(answer => answer.trim().toLocaleLowerCase() === normalized);
+      pointsAwarded = isCorrect ? pointsPerCorrect : 0;
     } else if (question.type === 'quick_poll') {
       isCorrect = true;
       pointsAwarded = question.pointsPerCorrect ?? 5;
@@ -202,7 +217,7 @@ export class RoomManager {
     const startTime = question.timeStartedAt || question.createdAt;
     const durationMs = Math.max(300, Date.now() - startTime);
     const responseDurationSec = Number((durationMs / 1000).toFixed(1));
-    const starsEarned = isCorrect ? 2 : 1;
+    const starsEarned = isCorrect ? ({ easy: 1, medium: 2, hard: 3 }[question.difficulty || 'medium']) : 1;
 
     // Update participant stats (only if new answer)
     if (isNewAnswer) {
@@ -354,6 +369,25 @@ export class RoomManager {
       if (res) closed.push({ code, ...res });
     }
     return closed;
+  }
+
+  closeRoom(code: string): Room | undefined {
+    const room = this.rooms.get(code);
+    if (!room) return undefined;
+    room.status = 'finished';
+    saveRoomReport(room);
+    return room;
+  }
+
+  kickParticipant(code: string, participantId: string): { room?: Room; kicked?: Participant; error?: string } {
+    const room = this.rooms.get(code);
+    if (!room) return { error: 'Room not found' };
+    const participant = room.participants[participantId];
+    if (!participant) return { error: 'Participant not found' };
+    delete room.participants[participantId];
+    this.sessionTokens.delete(participantId);
+    this.socketToRoom.delete(participantId);
+    return { room, kicked: participant };
   }
 
   // ponytail: cleanup disconnected participants after 5-min grace period

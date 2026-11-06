@@ -6,7 +6,8 @@ export type QuestionType =
   | 'matching'
   | 'ranking'
   | 'quick_poll'
-  | 'live_qna'; // ponnytail: added for Live Q&A feature
+  | 'live_qna' // ponytail: added for Live Q&A feature
+  | 'image_upload'; // Q-09 image upload activity
 
 export interface Participant {
   id: string; // socket.id or user session id
@@ -67,6 +68,9 @@ export interface Question {
   status: 'pending' | 'active' | 'closed';
   createdAt: number;
   pointsPerCorrect?: number; // default 10, can be customized
+  difficulty?: 'easy' | 'medium' | 'hard'; // P-06 difficulty for auto stars
+  // For fill-in-the-blanks questions, list of acceptable answers (case-insensitive)
+  correctAnswers?: string[];
 }
 
 export interface Answer {
@@ -141,6 +145,7 @@ export interface ServerToClientEvents {
   'participant-joined': (participant: Participant) => void;
   'participant-left': (participantId: string) => void;
   'participant-updated': (participant: Participant) => void;
+  'participant-kicked': (participantId: string) => void;
   'star-awarded': (payload: { participantId: string; count: number; totalStars: number }) => void;
   'question-started': (question: Question) => void;
   'question-closed': (summary: { questionId: string; answers: Answer[] }) => void;
@@ -149,6 +154,8 @@ export interface ServerToClientEvents {
   'qna-state': (items: QnaItem[]) => void;
   'room-closed': () => void;
   'error-message': (msg: string) => void;
+  'slide-changed': (slide: { index: number; title: string; imageUrl?: string }) => void;
+  'anonymous-mode': (enabled: boolean) => void;
 }
 
 export interface ClientToServerEvents {
@@ -162,6 +169,9 @@ export interface ClientToServerEvents {
   'upvote-qna': (payload: { code: string; qnaId: string }, callback?: (res: { success: boolean; error?: string }) => void) => void;
   'mark-qna': (payload: { code: string; hostToken: string; qnaId: string; status: 'answered' | 'ignored' | 'open' }) => void;
   'set-qna-enabled': (payload: { code: string; hostToken: string; enabled: boolean }) => void;
+  'broadcast-slide': (payload: { code: string; hostToken: string; slide: { index: number; title: string; imageUrl?: string } }) => void;
   'award-star': (payload: { code: string; hostToken: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
+  'close-room': (payload: { code: string; hostToken: string }) => void;
+  'kick-participant': (payload: { code: string; hostToken: string; participantId: string }) => void;
   'leave-room': (payload: { code: string }) => void;
 }

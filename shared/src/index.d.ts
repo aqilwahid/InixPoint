@@ -1,4 +1,4 @@
-export type QuestionType = 'multiple_choice' | 'word_cloud' | 'short_answer' | 'slide_drawing' | 'matching' | 'ranking' | 'quick_poll' | 'live_qna';
+export type QuestionType = 'multiple_choice' | 'word_cloud' | 'short_answer' | 'slide_drawing' | 'matching' | 'ranking' | 'quick_poll' | 'live_qna' | 'image_upload';
 export interface Participant {
     id: string;
     name: string;
@@ -50,6 +50,8 @@ export interface Question {
     status: 'pending' | 'active' | 'closed';
     createdAt: number;
     pointsPerCorrect?: number;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    correctAnswers?: string[];
 }
 export interface Answer {
     id: string;
@@ -114,11 +116,12 @@ export interface ServerToClientEvents {
     'participant-joined': (participant: Participant) => void;
     'participant-left': (participantId: string) => void;
     'participant-updated': (participant: Participant) => void;
+    'participant-kicked': (participantId: string) => void;
     'star-awarded': (payload: {
         participantId: string;
         count: number;
         totalStars: number;
-    }) => void;
+    }, callback?: (res: { success: boolean; error?: string }) => void) => void;
     'question-started': (question: Question) => void;
     'question-closed': (summary: {
         questionId: string;
@@ -129,6 +132,12 @@ export interface ServerToClientEvents {
     'qna-state': (items: QnaItem[]) => void;
     'room-closed': () => void;
     'error-message': (msg: string) => void;
+    'slide-changed': (slide: {
+        index: number;
+        title: string;
+        imageUrl?: string;
+    }) => void;
+    'anonymous-mode': (enabled: boolean) => void;
 }
 export interface ClientToServerEvents {
     'create-room': (payload: {
@@ -199,6 +208,15 @@ export interface ClientToServerEvents {
         hostToken: string;
         enabled: boolean;
     }) => void;
+    'broadcast-slide': (payload: {
+        code: string;
+        hostToken: string;
+        slide: {
+            index: number;
+            title: string;
+            imageUrl?: string;
+        };
+    }) => void;
     'award-star': (payload: {
         code: string;
         hostToken: string;
@@ -209,6 +227,15 @@ export interface ClientToServerEvents {
         stars?: number;
         error?: string;
     }) => void) => void;
+    'close-room': (payload: {
+        code: string;
+        hostToken: string;
+    }) => void;
+    'kick-participant': (payload: {
+        code: string;
+        hostToken: string;
+        participantId: string;
+    }) => void;
     'leave-room': (payload: {
         code: string;
     }) => void;

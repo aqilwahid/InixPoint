@@ -28,9 +28,17 @@ export function initDatabase() {
       content TEXT NOT NULL,
       submitted_at INTEGER NOT NULL,
       is_correct INTEGER,
+      points_awarded INTEGER DEFAULT 0,
+      response_duration_sec REAL DEFAULT 0,
+      stars_earned INTEGER DEFAULT 0,
       FOREIGN KEY (room_code) REFERENCES quiz_sessions(code)
     );
   `);
+      for (const [column, type] of [['points_awarded', 'INTEGER DEFAULT 0'], ['response_duration_sec', 'REAL DEFAULT 0'], ['stars_earned', 'INTEGER DEFAULT 0']] as const) {
+      try { db.exec(`ALTER TABLE quiz_answers ADD COLUMN ${column} ${type}`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
+      }
+      }
 }
 
 export function saveRoomReport(room: Room) {
@@ -55,8 +63,8 @@ export function saveRoomReport(room: Room) {
 
   const insertAnswer = db.prepare(`
     INSERT OR REPLACE INTO quiz_answers
-    (id, room_code, question_id, participant_id, participant_name, content, submitted_at, is_correct)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (id, room_code, question_id, participant_id, participant_name, content, submitted_at, is_correct, points_awarded, response_duration_sec, stars_earned)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const [qId, answers] of Object.entries(room.answers)) {
@@ -70,6 +78,10 @@ export function saveRoomReport(room: Room) {
         ans.content,
         ans.submittedAt,
         ans.isCorrect ? 1 : 0
+        ,
+        ans.pointsAwarded || 0,
+        ans.responseDurationSec || 0,
+        ans.starsEarned || 0
       );
     }
   }

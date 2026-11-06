@@ -18,6 +18,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [broadcastSlide, setBroadcastSlide] = useState<{ index: number; title: string; imageUrl?: string } | null>(null);
   const [stars, setStars] = useState<number>(() => {
     const me = Object.values(initialRoom.participants || {}).find(p => p.name === participantName || p.id === socket.id);
     return me?.stars || 0;
@@ -45,6 +46,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       setSubmittedAnswer(null);
       setStatusMessage('');
     });
+    socket.on('slide-changed', (slide) => setBroadcastSlide(slide));
 
     socket.on('question-closed', () => {
       setCurrentQuestion((prev: Question | undefined) => prev ? { ...prev, status: 'closed' } : undefined);
@@ -73,6 +75,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
     return () => {
       socket.off('question-started');
       socket.off('question-closed');
+      socket.off('slide-changed');
       socket.off('room-closed');
       socket.off('star-awarded');
       socket.off('participant-updated');
@@ -221,6 +224,26 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
             </div>
 
             {/* Answer Controls */}
+        {broadcastSlide && (
+          <div className="w-full max-w-2xl mb-5 rounded-xl border border-neutral-200 bg-white p-3">
+            <p className="mb-2 text-xs font-semibold text-neutral-500">Slide {broadcastSlide.index + 1}: {broadcastSlide.title}</p>
+            {broadcastSlide.imageUrl && <img src={broadcastSlide.imageUrl} alt={broadcastSlide.title} className="mx-auto max-h-[40vh] w-full object-contain" />}
+          </div>
+        )}
+        {currentQuestion.type === 'image_upload' && (
+          <div className="space-y-4">
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="block w-full text-sm" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 5 * 1024 * 1024) { alert('Ukuran gambar maksimal 5 MB.'); return; }
+              const reader = new FileReader();
+              reader.onload = () => setAnswerInput(String(reader.result));
+              reader.readAsDataURL(file);
+            }} />
+            {answerInput && <img src={answerInput} alt="Pratinjau jawaban" className="max-h-64 w-full object-contain rounded-lg border" />}
+            <button type="button" disabled={!answerInput || isSubmitting} onClick={() => handleSubmit(answerInput)} className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"><Send className="w-4 h-4" /><span>Kirim Gambar</span></button>
+          </div>
+        )}
             {currentQuestion.type === 'multiple_choice' && (
               <div className="space-y-3">
                 {(currentQuestion.options as MultipleChoiceOptions)?.choices?.map((choice: string, idx: number) => {

@@ -20,6 +20,7 @@ interface DeckPresenterProps {
   onDeckChange: (deck: Deck | null) => void;
   onLaunchActivity: (questionPayload: Omit<Question, 'id' | 'status' | 'createdAt'>) => void;
   isQuestionActive: boolean;
+  onSlideChange?: (slide: DeckSlide) => void;
 }
 
 export const DeckPresenter: React.FC<DeckPresenterProps> = ({
@@ -27,6 +28,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
   onDeckChange,
   onLaunchActivity,
   isQuestionActive,
+  onSlideChange,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null);
@@ -130,6 +132,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
     if (!deck || deck.currentSlideIndex >= deck.slides.length - 1) return;
     const nextIdx = deck.currentSlideIndex + 1;
     const nextSlide = deck.slides[nextIdx];
+    onSlideChange?.(nextSlide);
 
     onDeckChange({
       ...deck,
@@ -145,6 +148,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
   const handlePrevSlide = () => {
     if (!deck || deck.currentSlideIndex <= 0) return;
     const prevIdx = deck.currentSlideIndex - 1;
+    onSlideChange?.(deck.slides[prevIdx]);
     onDeckChange({
       ...deck,
       currentSlideIndex: prevIdx,

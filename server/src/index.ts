@@ -131,6 +131,25 @@ io.on('connection', (socket) => {
     callback({ success: true, room: result.room });
   });
 
+  socket.on('close-room', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'close-room');
+    const room = roomManager.closeRoom(payload.code);
+    if (room) {
+      console.log(`[Room] Host closed room ${payload.code}`);
+      io.to(payload.code).emit('room-closed');
+    }
+  });
+
+  socket.on('kick-participant', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'kick-participant');
+    const result = roomManager.kickParticipant(payload.code, payload.participantId);
+    if (result.room && result.kicked) {
+      console.log(`[Room] Host kicked ${result.kicked.name} from ${payload.code}`);
+      io.to(payload.participantId).emit('participant-kicked', payload.participantId);
+      io.to(payload.code).emit('participant-left', payload.participantId);
+    }
+  });
+
   socket.on('start-question', (payload) => {
     if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'start-question');
     const question = roomManager.startQuestion(payload.code, payload.question);
@@ -152,6 +171,13 @@ io.on('connection', (socket) => {
     callback({ success: true });
   });
 
+  socket.on('broadcast-slide', (payload, callback) => {
+  if (!roomManager.verifyHost(payload.code, payload.hostToken)) return callback?.({ success: false, error: 'Token host tidak valid' });
+  const slide = payload.slide;
+  if (!slide || !Number.isInteger(slide.index) || slide.index < 0 || slide.index > 1000 || typeof slide.title !== 'string' || slide.title.length > 300) return callback?.({ success: false, error: 'Data slide tidak valid' });
+  io.to(payload.code).emit('slide-changed', slide);
+  callback?.({ success: true });
+  });
   socket.on('submit-qna', (payload, callback) => {
   const content = payload.content.trim();
   if (!content || content.length > 500) return callback({ success: false, error: 'Pertanyaan harus 1–500 karakter' });

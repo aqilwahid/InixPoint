@@ -107,6 +107,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const [correctIndex, setCorrectIndex] = useState<number | undefined>(undefined);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showResponses, setShowResponses] = useState(true);
+  const [anonymousMode, setAnonymousMode] = useState(false);
   const [activeShortAnswerIndex, setActiveShortAnswerIndex] = useState<number | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timeLimitSec, setTimeLimitSec] = useState(30);
@@ -423,6 +424,16 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const handleExportCSV = () => {
     window.open(`http://${window.location.hostname}:4000/api/reports/${room.code}/csv`, '_blank');
   };
+  const handleExportXLSX = () => {
+  window.open(`http://${window.location.hostname}:4000/api/reports/${room.code}/xlsx`, '_blank');
+  };
+  const handleSlideChange = (slide: any) => {
+  socket.emit('broadcast-slide', {
+  code: room.code,
+  hostToken,
+  slide: { index: deck?.currentSlideIndex || 0, title: slide.title, imageUrl: slide.imageUrl }
+  });
+  };
 
   // R2 P-11: Start spinning random name
   const handleLaunchActivityPayload = (questionPayload: Omit<Question, 'id' | 'status' | 'createdAt'>) => {
@@ -595,6 +606,15 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
               <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-400 flex-shrink-0" />
               <span className="hidden sm:inline">Laporan</span>
             </button>
+            <button
+              type="button"
+              onClick={handleExportXLSX}
+              className="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition flex-shrink-0"
+              title="Ekspor XLSX Hasil Sesi"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">XLSX</span>
+            </button>
 
             <button
               type="button"
@@ -617,6 +637,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
             onDeckChange={setDeck}
             onLaunchActivity={handleLaunchActivityPayload}
             isQuestionActive={isQuestionActive}
+            onSlideChange={handleSlideChange}
           />
           {/* Question Launcher / Ribbon (mirip toolbar ClassPoint di gambar) */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-lg">
@@ -1057,7 +1078,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                             </div>
                             <p className="text-sm text-slate-100 whitespace-pre-wrap line-clamp-4">{ans.content}</p>
                             <span className="text-xs text-brand-300 font-semibold mt-3 block text-right">
-                              — {ans.participantName}
+                              — {anonymousMode ? 'Anonim' : ans.participantName}
                             </span>
                           </div>
                         ))
@@ -1078,11 +1099,11 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                         <div key={ans.id} className="bg-slate-700 border border-slate-600 rounded-xl overflow-hidden p-2 flex flex-col">
                           <img 
                             src={ans.content} 
-                            alt={`Gambar dari ${ans.participantName}`} 
+                              alt={`Gambar dari ${anonymousMode ? 'peserta anonim' : ans.participantName}`}
                             className="w-full aspect-[4/3] object-contain bg-white rounded-lg"
                           />
                           <span className="text-xs text-slate-200 font-semibold mt-2 text-center truncate">
-                            {ans.participantName}
+                            {anonymousMode ? 'Anonim' : ans.participantName}
                           </span>
                         </div>
                       ))
@@ -1144,7 +1165,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                                 }`}
                               >
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="font-bold text-sm text-slate-200">{ans.participantName}</span>
+                                  <span className="font-bold text-sm text-slate-200">{anonymousMode ? 'Anonim' : ans.participantName}</span>
                                   <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                                     ans.isCorrect 
                                       ? 'bg-emerald-500/20 text-emerald-300' 
@@ -1266,6 +1287,15 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                   >
                     {showResponses ? <Eye className="w-3.5 h-3.5 text-brand-400" /> : <EyeOff className="w-3.5 h-3.5 text-amber-400" />}
                     <span>{showResponses ? 'Responses' : 'Hidden'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnonymousMode(prev => !prev)}
+                    className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${anonymousMode ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}
+                    title="Sembunyikan nama peserta pada hasil presenter"
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>{anonymousMode ? 'Anonim' : 'Nama'}</span>
                   </button>
 
                   <button
@@ -1633,7 +1663,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                   {receivedAnswers[activeShortAnswerIndex].participantName.charAt(0).toUpperCase()}
                 </span>
                 <span className="text-base font-bold text-amber-950 font-sans">
-                  {receivedAnswers[activeShortAnswerIndex].participantName}
+                  {anonymousMode ? 'Anonim' : receivedAnswers[activeShortAnswerIndex].participantName}
                 </span>
               </div>
             </div>

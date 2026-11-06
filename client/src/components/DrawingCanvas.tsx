@@ -3,9 +3,10 @@ import React, { useRef, useState, useEffect } from 'react';
 interface DrawingCanvasProps {
   onSave: (dataUrl: string) => void;
   disabled?: boolean;
+  backgroundImage?: string;
 }
 
-export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled }) => {
+export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled, backgroundImage }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#0284c7');
@@ -21,7 +22,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled }
     // Fill white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
+  }, [backgroundImage]);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;

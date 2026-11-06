@@ -109,6 +109,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const [showResponses, setShowResponses] = useState(true);
   const [activeShortAnswerIndex, setActiveShortAnswerIndex] = useState<number | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timeLimitSec, setTimeLimitSec] = useState(30);
   const [isBgmPlaying, setIsBgmPlaying] = useState(false);
   const audioCtxRef = React.useRef<AudioContext | null>(null);
   const bgmIntervalRef = React.useRef<any>(null);
@@ -193,7 +194,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       setReceivedAnswers([]);
     });
 
-    socket.on('question-closed', (data) => {
+    socket.on('question-closed', () => {
       setRoom((prev) => ({
         ...prev,
         currentQuestion: prev.currentQuestion ? { ...prev.currentQuestion, status: 'closed' } : undefined
@@ -353,6 +354,12 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
     return `${m}:${s}`;
   };
 
+  const getTimeRemaining = (): number | null => {
+    if (!room.currentQuestion?.timeLimitSec || !room.currentQuestion.timeStartedAt) return null;
+    const elapsed = (Date.now() - room.currentQuestion.timeStartedAt) / 1000;
+    return Math.max(0, Math.ceil(room.currentQuestion.timeLimitSec - elapsed));
+  };
+
   const handleStartQuestion = () => {
     const finalPrompt = promptInput.trim() || (activeTab === 'quick_poll' ? 'Bagaimana pendapat atau pilihan Anda?' : '');
     if (!finalPrompt) {
@@ -363,6 +370,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
     const questionPayload: Omit<Question, 'id' | 'status' | 'createdAt'> = {
       type: activeTab,
       prompt: finalPrompt,
+      timeLimitSec: timeLimitSec > 0 ? timeLimitSec : undefined,
       options: activeTab === 'multiple_choice' ? {
         choices: optionsInput.filter(o => o.trim().length > 0),
         correctIndex,
@@ -718,6 +726,20 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                 placeholder="Tuliskan pertanyaan atau prompt untuk peserta..."
                 className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none disabled:cursor-not-allowed"
               />
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className="flex flex-col">
+                  <span className="text-xs font-semibold text-slate-400 mb-1">Batas Waktu (detik)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={timeLimitSec}
+                    onChange={(e) => setTimeLimitSec(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                  />
+                  <span className="text-xs text-slate-500 mt-0.5">0 = tanpa batas</span>
+                </label>
+              </div>
 
               {activeTab === 'multiple_choice' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -1206,7 +1228,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
 
                   <div className="flex items-center space-x-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 font-mono text-emerald-400 font-bold">
                     <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{formatTime(timerSeconds)}</span>
+                    <span>{room.currentQuestion?.timeLimitSec ? formatTime(getTimeRemaining() ?? 0) : formatTime(timerSeconds)}</span>
                     <button
                       type="button"
                       onClick={handleAdd15s}

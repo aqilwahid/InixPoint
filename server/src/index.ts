@@ -32,6 +32,12 @@ setInterval(() => {
   }
 }, 500);
 
+// ponytail: cleanup disconnected participants beyond 5-min grace period
+setInterval(() => {
+  const cleaned = roomManager.cleanupStaleParticipants();
+  if (cleaned > 0) console.log(`[Cleanup] Removed ${cleaned} stale participants`);
+}, 60000); // every minute
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: Date.now(), service: 'InixPoint Server' });
 });
@@ -107,6 +113,21 @@ io.on('connection', (socket) => {
 
     // Notify room host and everyone in the room
     socket.to(result.room.code).emit('participant-joined', result.participant);
+    callback({ success: true, room: result.room, sessionToken: result.sessionToken });
+  });
+
+  socket.on('rejoin-room', (payload, callback) => {
+    const result = roomManager.reconnectParticipant(payload.code, payload.sessionToken, socket.id);
+    if (result.error || !result.room || !result.participant) {
+      return callback({ success: false, error: result.error || 'Reconnect gagal' });
+    }
+
+    socket.join(result.room.code);
+    socket.emit('qna-state', result.room.qna);
+    console.log(`[Room] ${result.participant.name} (${socket.id}) reconnected to ${result.room.code}`);
+
+    // Notify room about reconnect
+    socket.to(result.room.code).emit('participant-updated', result.participant);
     callback({ success: true, room: result.room });
   });
 

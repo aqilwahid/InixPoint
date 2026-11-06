@@ -5,6 +5,7 @@ export interface Participant {
     score: number;
     joinedAt: number;
     connected: boolean;
+    disconnectedAt?: number;
     answeredCount?: number;
     correctCount?: number;
     stars?: number;
@@ -84,6 +85,30 @@ export interface QnaItem {
     status: 'open' | 'answered' | 'ignored';
     createdAt: number;
 }
+export type SlideType = 'pdf_page' | 'activity' | 'result';
+export interface DeckSlide {
+    id: string;
+    type: SlideType;
+    title: string;
+    pageNumber?: number;
+    imageUrl?: string;
+    activityConfig?: Omit<Question, 'id' | 'status' | 'createdAt'>;
+    autoStart?: boolean;
+    resultData?: {
+        questionPrompt: string;
+        type: QuestionType;
+        answersCount: number;
+        summary?: string;
+    };
+}
+export interface Deck {
+    id: string;
+    title: string;
+    fileName: string;
+    pageCount: number;
+    slides: DeckSlide[];
+    currentSlideIndex: number;
+}
 export interface ServerToClientEvents {
     'room-state': (room: Room) => void;
     'participant-joined': (participant: Participant) => void;
@@ -117,6 +142,15 @@ export interface ClientToServerEvents {
     'join-room': (payload: {
         code: string;
         name: string;
+    }, callback: (res: {
+        success: boolean;
+        room?: Room;
+        sessionToken?: string;
+        error?: string;
+    }) => void) => void;
+    'rejoin-room': (payload: {
+        code: string;
+        sessionToken: string;
     }, callback: (res: {
         success: boolean;
         room?: Room;

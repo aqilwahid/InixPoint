@@ -14,6 +14,7 @@ export interface Participant {
   score: number;
   joinedAt: number;
   connected: boolean;
+  disconnectedAt?: number; // set while offline; drives the 5-min reconnect grace period
   answeredCount?: number; // for leaderboard stats
   correctCount?: number;
   stars?: number; // gamification stars
@@ -152,7 +153,8 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'create-room': (payload: { title: string }, callback: (res: { success: boolean; room?: Room; hostToken?: string; error?: string }) => void) => void;
-  'join-room': (payload: { code: string; name: string }, callback: (res: { success: boolean; room?: Room; error?: string }) => void) => void;
+  'join-room': (payload: { code: string; name: string }, callback: (res: { success: boolean; room?: Room; sessionToken?: string; error?: string }) => void) => void;
+  'rejoin-room': (payload: { code: string; sessionToken: string }, callback: (res: { success: boolean; room?: Room; error?: string }) => void) => void;
   'start-question': (payload: { code: string; hostToken: string; question: Omit<Question, 'id' | 'status' | 'createdAt'> }) => void;
   'close-question': (payload: { code: string; hostToken: string; questionId: string }) => void;
   'submit-answer': (payload: { code: string; questionId: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;

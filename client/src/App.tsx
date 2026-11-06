@@ -26,6 +26,27 @@ export const App: React.FC = () => {
         setJoinCode(code);
       }
     }
+
+    // ponytail: auto-rejoin if session token exists in localStorage
+    const saved = localStorage.getItem('inixpoint_session');
+    if (saved) {
+      try {
+        const { code, sessionToken, name } = JSON.parse(saved);
+        if (code && sessionToken) {
+          socket.emit('rejoin-room' as any, { code, sessionToken }, (res: any) => {
+            if (res.success && res.room) {
+              setRoom(res.room);
+              setJoinName(name || '');
+              setMode('participant');
+            } else {
+              localStorage.removeItem('inixpoint_session');
+            }
+          });
+        }
+      } catch {
+        localStorage.removeItem('inixpoint_session');
+      }
+    }
   }, []);
 
   const handleCreateRoom = (e: React.FormEvent) => {
@@ -60,6 +81,14 @@ export const App: React.FC = () => {
       if (res.success && res.room) {
         setRoom(res.room);
         setMode('participant');
+        // persist for 5-min reconnect grace
+        if (res.sessionToken) {
+          localStorage.setItem('inixpoint_session', JSON.stringify({
+            code: joinCode.trim(),
+            sessionToken: res.sessionToken,
+            name: joinName.trim()
+          }));
+        }
       } else {
         setErrorMessage(res.error || 'PIN Ruangan tidak ditemukan atau salah.');
       }
@@ -71,7 +100,7 @@ export const App: React.FC = () => {
   }
 
   if (mode === 'participant' && room) {
-    return <Participant room={room} participantName={joinName} onLeave={() => { setRoom(null); setMode('landing'); }} />;
+    return <Participant room={room} participantName={joinName} onLeave={() => { setRoom(null); setMode('landing'); localStorage.removeItem('inixpoint_session'); }} />;
   }
 
   return (

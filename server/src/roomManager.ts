@@ -7,6 +7,8 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
   // Host tokens stay server-side: Room is broadcast to participants, so never put the token in it.
   private hostTokens = new Map<string, string>();
+  // Session tokens for participant reconnection within grace period (5 min)
+  private sessionTokens = new Map<string, string>(); // participantId -> sessionToken
 
   getHostToken(code: string): string | undefined {
     return this.hostTokens.get(code);
@@ -17,6 +19,11 @@ export class RoomManager {
     if (!expected || typeof token !== 'string' || token.length !== expected.length) return false;
     return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
   }
+
+  generateSessionToken(): string {
+    return randomBytes(16).toString('hex');
+  }
+
   private socketToRoom = new Map<string, { code: string; isHost: boolean; participantId?: string }>();
 
   generateCode(): string {
@@ -52,11 +59,12 @@ export class RoomManager {
     return this.rooms.get(code);
   }
 
-  joinRoom(code: string, socketId: string, name: string): { room?: Room; participant?: Participant; error?: string } {
+  joinRoom(code: string, socketId: string, name: string): { room?: Room; participant?: Participant; sessionToken?: string; error?: string } {
     const room = this.rooms.get(code);
     if (!room) return { error: 'Kode ruangan tidak ditemukan' };
     if (room.status === 'finished') return { error: 'Sesi kuis ini sudah selesai' };
 
+    const sessionToken = this.generateSessionToken();
     const participant: Participant = {
       id: socketId,
       name: name.trim() || 'Peserta',
@@ -66,7 +74,48 @@ export class RoomManager {
     };
 
     room.participants[socketId] = participant;
+    this.sessionTokens.set(socketId, sessionToken);
     this.socketToRoom.set(socketId, { code, isHost: false, participantId: socketId });
+    return { room, participant, sessionToken };
+  }
+
+  // ponytail: reconnect within 5-min grace period; upgrade to configurable TTL if multi-tier requested
+  reconnectParticipant(code: string, sessionToken: string, newSocketId: string): { room?: Room; participant?: Participant; error?: string } {
+    const room = this.rooms.get(code);
+    if (!room) return { error: 'Kode ruangan tidak ditemukan' };
+
+    // Find participant by sessionToken
+    let participant: Participant | undefined;
+    let oldParticipantId: string | undefined;
+    for (const [pid, p] of Object.entries(room.participants)) {
+      if (this.sessionTokens.get(pid) === sessionToken) {
+        participant = p;
+        oldParticipantId = pid;
+        break;
+      }
+    }
+
+    if (!participant || !oldParticipantId) return { error: 'Session tidak ditemukan atau kadaluarsa' };
+
+    // Check grace period (5 minutes)
+    const GRACE_PERIOD_MS = 5 * 60 * 1000;
+    if (participant.disconnectedAt && (Date.now() - participant.disconnectedAt > GRACE_PERIOD_MS)) {
+      return { error: 'Session sudah kadaluarsa (>5 menit offline)' };
+    }
+
+    // Re-bind to new socket.id
+    delete room.participants[oldParticipantId];
+    participant.id = newSocketId;
+    participant.connected = true;
+    participant.disconnectedAt = undefined;
+    room.participants[newSocketId] = participant;
+
+    // Update maps
+    this.sessionTokens.delete(oldParticipantId);
+    this.sessionTokens.set(newSocketId, sessionToken);
+    this.socketToRoom.delete(oldParticipantId);
+    this.socketToRoom.set(newSocketId, { code, isHost: false, participantId: newSocketId });
+
     return { room, participant };
   }
 
@@ -275,6 +324,7 @@ export class RoomManager {
       return { room, isHost: true };
     } else if (binding.participantId && room.participants[binding.participantId]) {
       room.participants[binding.participantId].connected = false;
+      room.participants[binding.participantId].disconnectedAt = Date.now();
       return { room, leftParticipantId: binding.participantId, isHost: false };
     }
 
@@ -304,5 +354,21 @@ export class RoomManager {
       if (res) closed.push({ code, ...res });
     }
     return closed;
+  }
+
+  // ponytail: cleanup disconnected participants after 5-min grace period
+  cleanupStaleParticipants(now = Date.now()): number {
+    const GRACE_PERIOD_MS = 5 * 60 * 1000;
+    let cleaned = 0;
+    for (const room of this.rooms.values()) {
+      for (const [pid, p] of Object.entries(room.participants)) {
+        if (!p.connected && p.disconnectedAt && (now - p.disconnectedAt > GRACE_PERIOD_MS)) {
+          delete room.participants[pid];
+          this.sessionTokens.delete(pid);
+          cleaned++;
+        }
+      }
+    }
+    return cleaned;
   }
 }

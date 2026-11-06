@@ -106,6 +106,24 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
   const participantList = Object.values(room.participants || {});
   const joinUrl = `${window.location.origin}/#join-${room.code}`;
+  const isQuestionActive = room.currentQuestion?.status === 'active';
+
+  // ponytail: sync activeTab with running question type; upgrade to question queue later
+  useEffect(() => {
+    if (room.currentQuestion?.status === 'active') {
+      setActiveTab(room.currentQuestion.type);
+    }
+  }, [room.currentQuestion?.status, room.currentQuestion?.type]);
+
+  // ponytail: sync body dark background in presenter mode to eliminate white scroll bounce / gaps
+  useEffect(() => {
+    const originalBodyClass = document.body.className;
+    document.body.classList.remove('bg-neutral-50', 'bg-slate-50');
+    document.body.classList.add('bg-slate-900');
+    return () => {
+      document.body.className = originalBodyClass;
+    };
+  }, []);
 
   useEffect(() => {
     socket.on('participant-joined', (p) => {
@@ -335,74 +353,85 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   }, [receivedAnswers]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col w-full overflow-x-hidden">
       {/* Top Bar Presenter */}
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between shadow-md">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center font-black text-white text-lg shadow-sm">
+      <header className="bg-slate-800 border-b border-slate-700 px-3 sm:px-6 py-2.5 sm:py-3 shadow-md z-30">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 max-w-full">
+          {/* Logo & Title */}
+          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-brand-600 flex items-center justify-center font-black text-white text-base sm:text-lg shadow-sm flex-shrink-0">
               IP
             </div>
-            <div>
-              <span className="font-extrabold text-white text-lg tracking-tight">InixPoint</span>
-              <span className="text-xs text-brand-400 block -mt-1 font-medium">Presenter Control Room</span>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5">
+                <span className="font-extrabold text-white text-base sm:text-lg tracking-tight">InixPoint</span>
+                <span className="text-[10px] sm:text-xs text-brand-400 font-medium hidden sm:inline">Presenter Room</span>
+              </div>
+              <div className="text-xs font-semibold text-slate-300 truncate max-w-[130px] sm:max-w-xs md:max-w-md" title={room.title}>
+                {room.title}
+              </div>
             </div>
           </div>
-          <div className="h-6 w-px bg-slate-700" />
-          <div className="text-sm font-semibold text-slate-300">
-            {room.title}
+
+          {/* Room Code & Stats */}
+          <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowQRModal(true)}
+              className="flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-500 text-white px-2.5 sm:px-3.5 py-1.5 rounded-lg font-bold text-xs sm:text-sm shadow transition flex-shrink-0"
+              title="Tampilkan QR Code dan PIN"
+            >
+              <QrCode className="w-4 h-4 flex-shrink-0" />
+              <span>PIN: <strong className="font-mono text-xs sm:text-base">{room.code}</strong></span>
+            </button>
+
+            <div className="flex items-center space-x-1 bg-slate-700 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 flex-shrink-0">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+              <span>{participantList.filter(p => p.connected).length}<span className="hidden sm:inline"> Peserta</span></span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition flex-shrink-0"
+              title="Ekspor CSV Hasil Sesi"
+            >
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-400 flex-shrink-0" />
+              <span className="hidden sm:inline">Laporan</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onExit}
+              className="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-500/10 transition flex-shrink-0"
+            >
+              Akhiri
+            </button>
           </div>
-        </div>
-
-        {/* Room Code & Stats */}
-        <div className="flex items-center space-x-4">
-          <button
-            type="button"
-            onClick={() => setShowQRModal(true)}
-            className="flex items-center space-x-2 bg-brand-600 hover:bg-brand-500 text-white px-3.5 py-1.5 rounded-lg font-bold text-sm shadow transition"
-          >
-            <QrCode className="w-4 h-4" />
-            <span>PIN: <strong className="font-mono text-base">{room.code}</strong></span>
-          </button>
-
-          <div className="flex items-center space-x-1.5 bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200">
-            <Users className="w-4 h-4 text-emerald-400" />
-            <span>{participantList.filter(p => p.connected).length} Peserta</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="flex items-center space-x-1.5 bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition"
-            title="Ekspor CSV Hasil Sesi"
-          >
-            <Download className="w-4 h-4 text-brand-400" />
-            <span>Laporan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onExit}
-            className="text-xs text-rose-400 hover:text-rose-300 ml-2"
-          >
-            Akhiri
-          </button>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
         {/* Left / Center: Interactive Stage */}
-        <main className="flex-1 flex flex-col p-6 overflow-y-auto">
+        <main className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto">
           {/* Question Launcher / Ribbon (mirip toolbar ClassPoint di gambar) */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-lg">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
-              <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+              <span className="flex items-center">
+                <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
+              </span>
+              {isQuestionActive && (
+                <span className="text-amber-400 font-semibold normal-case flex items-center gap-1 text-[11px] bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                  🔒 Kuis sedang aktif (terkunci)
+                </span>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
               <button
                 type="button"
-                onClick={() => setActiveTab('multiple_choice')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('multiple_choice')}
                 className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'multiple_choice' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -415,7 +444,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
               <button
                 type="button"
-                onClick={() => setActiveTab('word_cloud')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('word_cloud')}
                 className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'word_cloud' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -428,7 +458,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
               <button
                 type="button"
-                onClick={() => setActiveTab('short_answer')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('short_answer')}
                 className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'short_answer' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -441,7 +472,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
               <button
                 type="button"
-                onClick={() => setActiveTab('slide_drawing')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('slide_drawing')}
                 className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'slide_drawing' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -454,7 +486,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
               <button
                 type="button"
-                onClick={() => setActiveTab('matching')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('matching')}
                 className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'matching' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -467,7 +500,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
               <button
                 type="button"
-                onClick={() => setActiveTab('quick_poll')}
+                disabled={isQuestionActive}
+              onClick={() => setActiveTab('quick_poll')}
                 className={`col-span-2 sm:col-span-1 flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${
                   activeTab === 'quick_poll' 
                     ? 'bg-brand-600 text-white shadow-md' 
@@ -481,12 +515,13 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
             {/* Config Fields */}
             <div className="space-y-3">
+              <fieldset disabled={isQuestionActive} className="space-y-3 border-0 p-0 m-0 disabled:opacity-60">
               <input
                 type="text"
                 value={promptInput}
                 onChange={(e) => setPromptInput(e.target.value)}
                 placeholder="Tuliskan pertanyaan atau prompt untuk peserta..."
-                className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none disabled:cursor-not-allowed"
               />
 
               {activeTab === 'multiple_choice' && (
@@ -634,7 +669,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
                 </div>
               )}
 
-              <div className="flex justify-end space-x-3 pt-2">
+  </fieldset>
+
+                        <div className="flex justify-end space-x-3 pt-2">
                 {room.currentQuestion?.status === 'active' ? (
                   <button
                     type="button"
@@ -1057,24 +1094,34 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
       {/* QR Code Big Screen Modal */}
       {showQRModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white text-slate-900 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h2 className="text-2xl font-black mb-1">Bergabung ke InixPoint</h2>
-            <p className="text-sm text-slate-500 mb-6">Scan QR code atau buka link dan masukkan PIN:</p>
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+          onClick={() => setShowQRModal(false)}
+        >
+          <div 
+            className="bg-white text-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 max-w-sm sm:max-w-md w-full text-center shadow-2xl animate-in fade-in zoom-in duration-200 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl sm:text-2xl font-black mb-1">Bergabung ke InixPoint</h2>
+            <p className="text-xs sm:text-sm text-slate-500 mb-4 sm:mb-6">Scan QR code atau buka link dan masukkan PIN:</p>
             
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block mb-6 shadow-inner">
-              <QRCodeSVG value={joinUrl} size={220} />
+            <div className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 inline-flex items-center justify-center mb-4 sm:mb-6 shadow-inner max-w-full">
+              <QRCodeSVG 
+                value={joinUrl} 
+                size={200}
+                className="w-44 h-44 sm:w-52 sm:h-52 max-w-full aspect-square" 
+              />
             </div>
 
-            <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 mb-6">
-              <span className="text-xs text-brand-600 uppercase font-bold tracking-wider block">Kode PIN Ruangan</span>
-              <span className="text-5xl font-mono font-black text-brand-700 tracking-widest">{room.code}</span>
+            <div className="bg-brand-50 border border-brand-200 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6">
+              <span className="text-[11px] sm:text-xs text-brand-600 uppercase font-bold tracking-wider block">Kode PIN Ruangan</span>
+              <span className="text-3xl sm:text-5xl font-mono font-black text-brand-700 tracking-widest">{room.code}</span>
             </div>
 
             <button
               type="button"
               onClick={() => setShowQRModal(false)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 sm:py-3 rounded-xl transition text-sm sm:text-base"
             >
               Tutup Layar PIN
             </button>

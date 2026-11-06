@@ -5,9 +5,10 @@ import { Trophy, Medal, Star, Zap } from 'lucide-react';
 interface LeaderboardProps {
   participants: Participant[];
   title?: string;
+  onAwardStar?: (participantId: string) => void;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ participants, title = 'Quiz Summary & Leaderboard' }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ participants, title = 'Quiz Summary & Leaderboard', onAwardStar }) => {
   const [viewMode, setViewMode] = useState<'table' | 'podium'>('table');
 
   const sorted = [...participants]
@@ -153,10 +154,22 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ participants, title = 
                     {participant.correctCount ?? 0}
                   </td>
                   <td className="py-3 px-3 text-center">
-                    <span className="inline-flex items-center space-x-1 bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold font-mono">
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      <span>{participant.stars ?? 0}</span>
-                    </span>
+                    <div className="inline-flex items-center space-x-1.5">
+                      <span className="inline-flex items-center space-x-1 bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold font-mono">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{participant.stars ?? 0}</span>
+                      </span>
+                      {onAwardStar && (
+                        <button
+                          type="button"
+                          onClick={() => onAwardStar(participant.id)}
+                          className="px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 transition text-[10px] font-bold active:scale-95"
+                          title={`Beri +1 bintang untuk ${participant.name}`}
+                        >
+                          +⭐
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-3 text-center font-mono text-slate-300">
                     <span className="inline-flex items-center text-slate-300">

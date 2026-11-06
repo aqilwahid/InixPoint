@@ -125,6 +125,22 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('award-star', (payload, callback) => {
+    const count = payload.count ?? 1;
+    const updated = roomManager.awardStar(payload.code, payload.participantId, count);
+    if (!updated) {
+      return callback?.({ success: false, error: 'Peserta atau ruangan tidak ditemukan' });
+    }
+    console.log(`[Star] Host awarded ${count} star(s) to ${updated.name} in room ${payload.code}`);
+    io.to(payload.code).emit('participant-updated', updated);
+    io.to(payload.code).emit('star-awarded', {
+      participantId: payload.participantId,
+      count,
+      totalStars: updated.stars || 0
+    });
+    callback?.({ success: true, stars: updated.stars });
+  });
+
   socket.on('disconnect', () => {
     const { room, leftParticipantId, isHost } = roomManager.handleDisconnect(socket.id);
     if (room) {

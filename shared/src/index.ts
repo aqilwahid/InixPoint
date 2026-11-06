@@ -97,6 +97,8 @@ export interface ServerToClientEvents {
   'room-state': (room: Room) => void;
   'participant-joined': (participant: Participant) => void;
   'participant-left': (participantId: string) => void;
+  'participant-updated': (participant: Participant) => void;
+  'star-awarded': (payload: { participantId: string; count: number; totalStars: number }) => void;
   'question-started': (question: Question) => void;
   'question-closed': (summary: { questionId: string; answers: Answer[] }) => void;
   'answer-received': (answer: Answer) => void;
@@ -110,5 +112,6 @@ export interface ClientToServerEvents {
   'start-question': (payload: { code: string; question: Omit<Question, 'id' | 'status' | 'createdAt'> }) => void;
   'close-question': (payload: { code: string; questionId: string }) => void;
   'submit-answer': (payload: { code: string; questionId: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
+  'award-star': (payload: { code: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
   'leave-room': (payload: { code: string }) => void;
 }

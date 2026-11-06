@@ -3,7 +3,7 @@ import { socket } from '../lib/socket';
 import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
-import { CheckCircle2, Clock, Send } from 'lucide-react';
+import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
 
 interface ParticipantProps {
   room: Room;
@@ -18,6 +18,11 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [stars, setStars] = useState<number>(() => {
+    const me = Object.values(initialRoom.participants || {}).find(p => p.name === participantName || p.id === socket.id);
+    return me?.stars || 0;
+  });
+  const [starToast, setStarToast] = useState<string | null>(null);
 
   useEffect(() => {
     socket.on('question-started', (q: Question) => {
@@ -37,10 +42,26 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       onLeave();
     });
 
+    socket.on('star-awarded', (payload) => {
+      if (payload.participantId === socket.id) {
+        setStars(payload.totalStars);
+        setStarToast(`⭐ +${payload.count} Bintang dari Presenter!`);
+        setTimeout(() => setStarToast(null), 4000);
+      }
+    });
+
+    socket.on('participant-updated', (p) => {
+      if (p.id === socket.id) {
+        setStars(p.stars || 0);
+      }
+    });
+
     return () => {
       socket.off('question-started');
       socket.off('question-closed');
       socket.off('room-closed');
+      socket.off('star-awarded');
+      socket.off('participant-updated');
     };
   }, [onLeave]);
 
@@ -77,6 +98,10 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1 rounded-full font-mono font-bold text-xs shadow-sm">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+            <span>{stars}</span>
+          </div>
           <div className="text-right">
             <span className="text-xs font-semibold text-neutral-700 block">{participantName}</span>
             <span className="text-xs text-success flex items-center justify-end space-x-1">
@@ -86,6 +111,14 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
           </div>
         </div>
       </header>
+
+      {/* Floating Star Toast Banner */}
+      {starToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-amber-950 px-4 py-2 rounded-2xl shadow-xl font-bold text-sm flex items-center space-x-2 animate-bounce border-2 border-amber-300">
+          <Star className="w-4 h-4 fill-amber-950" />
+          <span>{starToast}</span>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 px-4 py-6 flex flex-col items-center justify-center">

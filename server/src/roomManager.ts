@@ -212,4 +212,15 @@ export class RoomManager {
 
     return { room };
   }
+
+  // ponytail: manual stars given by presenter; upgrade to custom point weighting or badges if multi-tier rewards requested
+  awardStar(code: string, participantId: string, count: number = 1): Participant | undefined {
+    const room = this.rooms.get(code);
+    if (!room) return undefined;
+    const participant = room.participants[participantId];
+    if (!participant) return undefined;
+
+    participant.stars = Math.max(0, (participant.stars || 0) + count);
+    return participant;
+  }
 }

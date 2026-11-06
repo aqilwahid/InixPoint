@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
+import { Room, Question, QnaItem, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
@@ -12,7 +12,7 @@ interface ParticipantProps {
 }
 
 export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, participantName, onLeave }) => {
-  const [room] = useState<Room>(initialRoom);
+  const [room, setRoomState] = useState<Room>(initialRoom);
   const [currentQuestion, setCurrentQuestion] = useState<Question | undefined>(initialRoom.currentQuestion);
   const [answerInput, setAnswerInput] = useState<string>('');
   const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   const [starToast, setStarToast] = useState<string | null>(null);
 
   // ponytail: countdown timer based on server timeStartedAt
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const getTimeRemaining = (): number | null => {
     if (!currentQuestion?.timeLimitSec || !currentQuestion.timeStartedAt) return null;
     const elapsed = (Date.now() - currentQuestion.timeStartedAt) / 1000;
@@ -95,15 +95,15 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   };
 
   // Q&A list state and socket listeners
-  const [, setQnaItems] = useState<any[]>([]);
+  const [qnaItems, setQnaItems] = useState<QnaItem[]>(initialRoom.qna || []);
 
   useEffect(() => {
     // receive full state on join
-    socket.on('qna-state', (items: any[]) => {
+    socket.on('qna-state', (items: QnaItem[]) => {
       setQnaItems(items);
     });
     // receive incremental updates
-    socket.on('qna-updated', (item: any) => {
+    socket.on('qna-updated', (item: QnaItem) => {
       setQnaItems((prev) => {
         const idx = prev.findIndex((i) => i.id === item.id);
         if (idx >= 0) {
@@ -114,9 +114,11 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
         return [...prev, item];
       });
     });
+    socket.on('room-state', (nextRoom: Room) => setRoomState(nextRoom));
     return () => {
       socket.off('qna-state');
       socket.off('qna-updated');
+      socket.off('room-state');
     };
   }, []);
 
@@ -365,19 +367,33 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
         {/* Live Q&A Section */}
         <div className="mt-8 w-full max-w-2xl">
           <h3 className="text-lg font-semibold mb-2 text-neutral-800">Live Q&amp;A</h3>
-          <div className="flex space-x-2 mb-4">
+          {room.qnaEnabled === false && <p className="mb-3 text-sm text-neutral-500">Live Q&amp;A sedang dinonaktifkan presenter.</p>}
+          <div className={`flex space-x-2 mb-4 ${room.qnaEnabled === false ? 'opacity-50' : ''}`}>
             <input
               type="text"
               placeholder="Kirim pertanyaan Anda..."
+              disabled={room.qnaEnabled === false}
               value={qnaInput}
               onChange={e => setQnaInput(e.target.value)}
               className="flex-1 input-base"
             />
-            <button onClick={handleQnaSubmit} className="btn-primary">
+            <button disabled={room.qnaEnabled === false} onClick={handleQnaSubmit} className="btn-primary disabled:opacity-50">
               Kirim
             </button>
           </div>
-          {/* TODO: render list of Q&A items with upvote button */}
+          <div className="space-y-3">
+            {qnaItems.length === 0 ? <p className="text-sm text-neutral-500">Belum ada pertanyaan.</p> : qnaItems.map((item) => (
+              <div key={item.id} className={`rounded-lg border p-3 ${item.status === 'answered' ? 'border-success/30 bg-success/5' : 'border-neutral-200 bg-white'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-neutral-800 break-words">{item.content}</p>
+                    <p className="text-xs text-neutral-500 mt-1">{item.participantName}{item.status === 'answered' ? ' · Terjawab' : item.status === 'ignored' ? ' · Diabaikan' : ''}</p>
+                  </div>
+                  <button type="button" onClick={() => socket.emit('upvote-qna', { code: room.code, qnaId: item.id })} className="flex-shrink-0 rounded-md border border-neutral-200 px-2 py-1 text-xs font-semibold text-neutral-600 hover:border-primary-300 hover:text-primary-700" aria-label={`Upvote pertanyaan, ${item.upvotes} suara`}>▲ {item.upvotes}</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 

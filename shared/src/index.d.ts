@@ -72,6 +72,7 @@ export interface Room {
     questions: Question[];
     answers: Record<string, Answer[]>;
     qna: QnaItem[];
+    qnaEnabled: boolean;
     createdAt: number;
 }
 export interface QnaItem {
@@ -80,7 +81,7 @@ export interface QnaItem {
     participantName: string;
     content: string;
     upvotes: number;
-    answered: boolean;
+    status: 'open' | 'answered' | 'ignored';
     createdAt: number;
 }
 export interface ServerToClientEvents {
@@ -157,7 +158,12 @@ export interface ClientToServerEvents {
         code: string;
         hostToken: string;
         qnaId: string;
-        answered: boolean;
+        status: 'answered' | 'ignored' | 'open';
+    }) => void;
+    'set-qna-enabled': (payload: {
+        code: string;
+        hostToken: string;
+        enabled: boolean;
     }) => void;
     'award-star': (payload: {
         code: string;

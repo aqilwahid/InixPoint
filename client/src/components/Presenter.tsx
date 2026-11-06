@@ -4,6 +4,7 @@ import {
   Room, 
   Question, 
   Answer, 
+  QnaItem,
   QuestionType,
   QuickPollTemplate,
   QuickPollOptions,
@@ -112,6 +113,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const audioCtxRef = React.useRef<AudioContext | null>(null);
   const bgmIntervalRef = React.useRef<any>(null);
   const [receivedAnswers, setReceivedAnswers] = useState<Answer[]>([]);
+  const [qnaItems, setQnaItems] = useState<QnaItem[]>(initialRoom.qna || []);
 
   const participantList = Object.values(room.participants || {});
   const joinUrl = `${window.location.origin}/#join-${room.code}`;
@@ -184,6 +186,20 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       }));
     });
 
+    socket.on('question-started', (q) => {
+      setRoom((prev) => ({ ...prev, currentQuestion: q }));
+      setTimerSeconds(0);
+      setShowResponses(true);
+      setReceivedAnswers([]);
+    });
+
+    socket.on('question-closed', (data) => {
+      setRoom((prev) => ({
+        ...prev,
+        currentQuestion: prev.currentQuestion ? { ...prev.currentQuestion, status: 'closed' } : undefined
+      }));
+    });
+
     socket.on('participant-left', (pId) => {
       setRoom((prev) => {
         if (!prev.participants[pId]) return prev;
@@ -234,11 +250,25 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
         });
       }
     });
+    socket.on('qna-state', (items) => setQnaItems(items));
+    socket.on('room-state', (nextRoom) => setRoom(nextRoom));
+    socket.on('qna-updated', (item) => {
+      setQnaItems((prev) => {
+        const idx = prev.findIndex((existing) => existing.id === item.id);
+        if (idx < 0) return [...prev, item];
+        const next = [...prev];
+        next[idx] = item;
+        return next;
+      });
+    });
 
     return () => {
       socket.off('participant-joined');
       socket.off('participant-left');
       socket.off('answer-received');
+      socket.off('qna-state');
+      socket.off('qna-updated');
+      socket.off('room-state');
     };
   }, []);
 
@@ -1234,6 +1264,29 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
             )}
           </div>
         </main>
+
+        <section className="w-full md:w-80 bg-slate-800/90 border-t md:border-t-0 md:border-l border-slate-700 p-4 flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5 text-brand-400" /> Live Q&amp;A</h3>
+            <label className="flex items-center gap-1 text-[11px] text-slate-300">
+              <input type="checkbox" checked={room.qnaEnabled} onChange={(e) => socket.emit('set-qna-enabled', { code: room.code, hostToken, enabled: e.target.checked })} /> Aktif
+            </label>
+          </div>
+          <div className="space-y-2 overflow-y-auto max-h-80">
+            {qnaItems.length === 0 ? <p className="text-xs text-slate-500">Belum ada pertanyaan.</p> : [...qnaItems].sort((a, b) => b.upvotes - a.upvotes || a.createdAt - b.createdAt).map((item) => (
+              <div key={item.id} className={`rounded-lg border p-2.5 ${item.status === 'answered' ? 'border-emerald-500/30 bg-emerald-950/20' : item.status === 'ignored' ? 'border-slate-600 bg-slate-900/20 opacity-70' : 'border-slate-700 bg-slate-900/40'}`}>
+                <p className="text-xs text-slate-100 break-words">{item.content}</p>
+                <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-400">
+                  <span className="truncate">{item.participantName} · ▲ {item.upvotes}</span>
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => socket.emit('mark-qna', { code: room.code, hostToken, qnaId: item.id, status: item.status === 'answered' ? 'open' : 'answered' })} className="rounded bg-emerald-600 px-1.5 py-1 font-semibold text-white">{item.status === 'answered' ? 'Buka' : 'Jawab'}</button>
+                    <button type="button" onClick={() => socket.emit('mark-qna', { code: room.code, hostToken, qnaId: item.id, status: item.status === 'ignored' ? 'open' : 'ignored' })} className="rounded bg-slate-700 px-1.5 py-1 font-semibold text-slate-200">Abaikan</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* Right Sidebar: Connected Participants & R2 P-07 Live Submission Status */}
         <aside className="w-full md:w-72 bg-slate-800/90 border-t md:border-t-0 md:border-l border-slate-700 p-4 flex flex-col">

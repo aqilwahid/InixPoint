@@ -38,6 +38,7 @@ export class RoomManager {
       questions: [],
       answers: {},
       qna: [], // ponnytail: live Q&A entries
+      qnaEnabled: true,
       createdAt: Date.now()
     };
 
@@ -228,7 +229,7 @@ export class RoomManager {
       participantName: participant.name,
       content,
       upvotes: 0,
-      answered: false,
+      status: 'open',
       createdAt: Date.now()
     };
     room.qna.push(qna);
@@ -245,11 +246,17 @@ export class RoomManager {
     return item;
   }
 
-  markQna(code: string, qnaId: string, answered: boolean): QnaItem | undefined {
+  markQna(code: string, qnaId: string, status: QnaItem['status']): QnaItem | undefined {
     const item = this.rooms.get(code)?.qna.find(q => q.id === qnaId);
     if (!item) return undefined;
-    item.answered = answered;
+  item.status = status;
     return item;
+  }
+  setQnaEnabled(code: string, enabled: boolean): Room | undefined {
+  const room = this.rooms.get(code);
+  if (!room) return undefined;
+  room.qnaEnabled = enabled;
+  return room;
   }
 
   handleDisconnect(socketId: string): { room?: Room; leftParticipantId?: string; isHost?: boolean } {

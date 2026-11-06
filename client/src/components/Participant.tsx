@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
+import { Room, Question, QnaItem, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
@@ -64,7 +64,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       socket.off('participant-updated');
       socket.off('qna-updated');
     };
-  }, [onLeave]);
+  const [qnaItems, setQnaItems] = useState<QnaItem[]>(initialRoom.qna || []);
 
   // Q&A submission state
   const [qnaInput, setQnaInput] = useState<string>('');
@@ -80,8 +80,6 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
     });
   };
 
-  // Q&A list state and socket listeners
-  const [, setQnaItems] = useState<any[]>([]);
 
   useEffect(() => {
     // receive full state on join
@@ -353,7 +351,28 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
               Kirim
             </button>
           </div>
-          {/* TODO: render list of Q&A items with upvote button */}
+          <div className="space-y-3">
+            {qnaItems.length === 0 ? (
+              <p className="text-sm text-neutral-500">Belum ada pertanyaan.</p>
+            ) : qnaItems.map((item) => (
+              <div key={item.id} className={`rounded-lg border p-3 ${item.status === 'answered' ? 'border-success/30 bg-success/5' : item.status === 'ignored' ? 'border-neutral-200 bg-neutral-50 opacity-75' : 'border-neutral-200 bg-white'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-neutral-800 break-words">{item.content}</p>
+                    <p className="text-xs text-neutral-500 mt-1">{item.participantName}{item.status === 'answered' ? ' · Terjawab' : item.status === 'ignored' ? ' · Diabaikan' : ''}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => socket.emit('upvote-qna', { code: room.code, qnaId: item.id })}
+                    className="flex-shrink-0 rounded-md border border-neutral-200 px-2 py-1 text-xs font-semibold text-neutral-600 hover:border-primary-300 hover:text-primary-700"
+                    aria-label={`Upvote pertanyaan, ${item.upvotes} suara`}
+                  >
+                    ▲ {item.upvotes}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 

@@ -91,6 +91,7 @@ export interface Room {
   questions: Question[];
   answers: Record<string, Answer[]>; // questionId -> list of Answers
   qna: QnaItem[]; // live Q&A entries
+  qnaEnabled: boolean;
   createdAt: number;
 }
 
@@ -101,7 +102,7 @@ export interface QnaItem {
   participantName: string;
   content: string; // question text
   upvotes: number;
-  answered: boolean;
+  status: 'open' | 'answered' | 'ignored';
   createdAt: number;
 }
 
@@ -157,7 +158,8 @@ export interface ClientToServerEvents {
   'submit-answer': (payload: { code: string; questionId: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
   'submit-qna': (payload: { code: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
   'upvote-qna': (payload: { code: string; qnaId: string }, callback?: (res: { success: boolean; error?: string }) => void) => void;
-  'mark-qna': (payload: { code: string; hostToken: string; qnaId: string; answered: boolean }) => void;
+  'mark-qna': (payload: { code: string; hostToken: string; qnaId: string; status: 'answered' | 'ignored' | 'open' }) => void;
+  'set-qna-enabled': (payload: { code: string; hostToken: string; enabled: boolean }) => void;
   'award-star': (payload: { code: string; hostToken: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
   'leave-room': (payload: { code: string }) => void;
 }

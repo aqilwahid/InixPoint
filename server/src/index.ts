@@ -102,6 +102,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(result.room.code);
+    socket.emit('qna-state', result.room.qna);
     console.log(`[Room] ${result.participant.name} (${socket.id}) joined ${result.room.code}`);
 
     // Notify room host and everyone in the room
@@ -133,6 +134,7 @@ io.on('connection', (socket) => {
   socket.on('submit-qna', (payload, callback) => {
   const content = payload.content.trim();
   if (!content || content.length > 500) return callback({ success: false, error: 'Pertanyaan harus 1–500 karakter' });
+  if (roomManager.getRoom(payload.code)?.qnaEnabled === false) return callback({ success: false, error: 'Live Q&A sedang dinonaktifkan presenter' });
   const item = roomManager.submitQna(payload.code, socket.id, content);
   if (!item) return callback({ success: false, error: 'Peserta atau ruangan tidak ditemukan' });
   io.to(payload.code).emit('qna-updated', item);
@@ -146,8 +148,13 @@ io.on('connection', (socket) => {
   });
   socket.on('mark-qna', (payload) => {
     if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'mark-qna');
-    const item = roomManager.markQna(payload.code, payload.qnaId, payload.answered);
+    const item = roomManager.markQna(payload.code, payload.qnaId, payload.status);
   if (item) io.to(payload.code).emit('qna-updated', item);
+  });
+  socket.on('set-qna-enabled', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'set-qna-enabled');
+    const room = roomManager.setQnaEnabled(payload.code, payload.enabled);
+    if (room) io.to(payload.code).emit('room-state', room);
   });
   socket.on('close-question', (payload) => {
     if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'close-question');

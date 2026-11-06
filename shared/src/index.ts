@@ -105,6 +105,34 @@ export interface QnaItem {
   createdAt: number;
 }
 
+// R2 Deck & Slide types
+export type SlideType = 'pdf_page' | 'activity' | 'result';
+
+export interface DeckSlide {
+  id: string;
+  type: SlideType;
+  title: string;
+  pageNumber?: number; // 1-indexed for PDF pages
+  imageUrl?: string; // data URL or rendered image
+  activityConfig?: Omit<Question, 'id' | 'status' | 'createdAt'>;
+  autoStart?: boolean; // D-04: start activity automatically when slide is shown
+  resultData?: {
+    questionPrompt: string;
+    type: QuestionType;
+    answersCount: number;
+    summary?: string;
+  };
+}
+
+export interface Deck {
+  id: string;
+  title: string;
+  fileName: string;
+  pageCount: number;
+  slides: DeckSlide[];
+  currentSlideIndex: number;
+}
+
 // Socket.io payload contracts
 export interface ServerToClientEvents {
   'room-state': (room: Room) => void;

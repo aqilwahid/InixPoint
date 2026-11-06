@@ -26,6 +26,7 @@ const qData: Omit<Question, 'id' | 'status' | 'createdAt'> = {
 const q = manager.startQuestion(room.code, qData)!;
 // Simulate question started 2.0s ago
 q.createdAt = Date.now() - 2000;
+q.timeStartedAt = q.createdAt;
 
 // Fast runner answers correctly
 const ansFast = manager.submitAnswer(room.code, q.id, 'sock_fast', '1')!;

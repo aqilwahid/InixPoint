@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions, QnaItem } from '@inixpoint/shared';
+import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
@@ -79,6 +79,32 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       }
     });
   };
+
+  // Q&A list state and socket listeners
+  const [, setQnaItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    // receive full state on join
+    socket.on('qna-state', (items: any[]) => {
+      setQnaItems(items);
+    });
+    // receive incremental updates
+    socket.on('qna-updated', (item: any) => {
+      setQnaItems((prev) => {
+        const idx = prev.findIndex((i) => i.id === item.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = item;
+          return next;
+        }
+        return [...prev, item];
+      });
+    });
+    return () => {
+      socket.off('qna-state');
+      socket.off('qna-updated');
+    };
+  }, []);
 
   const handleSubmit = (content: string) => {
     if (!currentQuestion || !content.trim()) return;

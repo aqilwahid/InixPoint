@@ -73,11 +73,13 @@ export class RoomManager {
     const room = this.rooms.get(code);
     if (!room) return undefined;
 
+    const now = Date.now();
     const question: Question = {
       ...qData,
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      id: 'q_' + now + '_' + Math.random().toString(36).substring(2, 6),
       status: 'active',
-      createdAt: Date.now()
+      createdAt: now,
+      timeStartedAt: now
     };
 
     room.currentQuestion = question;
@@ -95,6 +97,14 @@ export class RoomManager {
     const question = room.currentQuestion;
     if (!question || question.id !== questionId || question.status !== 'active') {
       return undefined;
+    }
+
+    // ponytail: reject answers after timer expires
+    if (question.timeLimitSec && question.timeStartedAt) {
+      const elapsed = (Date.now() - question.timeStartedAt) / 1000;
+      if (elapsed > question.timeLimitSec) {
+        return undefined; // too late
+      }
     }
 
     const participant = room.participants[participantId];
@@ -273,5 +283,19 @@ export class RoomManager {
 
     participant.stars = Math.max(0, (participant.stars || 0) + count);
     return participant;
+  }
+
+  // Closes every active question whose timer ran out; caller broadcasts the results.
+  // ponytail: O(rooms) scan per tick; switch to per-question setTimeout if room count gets large.
+  closeExpired(now = Date.now()): Array<{ code: string; questionId: string; answers: Answer[] }> {
+    const closed: Array<{ code: string; questionId: string; answers: Answer[] }> = [];
+    for (const [code, room] of this.rooms) {
+      const q = room.currentQuestion;
+      if (q?.status !== 'active' || !q.timeLimitSec || !q.timeStartedAt) continue;
+      if (now - q.timeStartedAt < q.timeLimitSec * 1000) continue;
+      const res = this.closeQuestion(code, q.id);
+      if (res) closed.push({ code, ...res });
+    }
+    return closed;
   }
 }

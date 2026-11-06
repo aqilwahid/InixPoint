@@ -23,6 +23,15 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 
 const roomManager = new RoomManager();
 
+// ponytail: auto-close expired questions; upgrade to per-question timer if precision needed
+setInterval(() => {
+  const expired = roomManager.closeExpired();
+  for (const item of expired) {
+    console.log(`[Timer] Auto-closed question ${item.questionId} in room ${item.code}`);
+    io.to(item.code).emit('question-closed', { questionId: item.questionId, answers: item.answers });
+  }
+}, 500);
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: Date.now(), service: 'InixPoint Server' });
 });

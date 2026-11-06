@@ -8,6 +8,7 @@ import type {
 } from '@inixpoint/shared';
 import { initDatabase, getRoomSummary } from './db.js';
 import { RoomManager } from './roomManager.js';
+import ExcelJS from 'exceljs';
 
 const app = express();
 const server = http.createServer(app);
@@ -82,6 +83,30 @@ app.get('/api/reports/:code/csv', (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="inixpoint-report-${req.params.code}.csv"`);
   res.send(csv);
+});
+app.get('/api/reports/:code/xlsx', async (req, res) => {
+const summary = getRoomSummary(req.params.code);
+if (!summary.session) return res.status(404).send('Not Found');
+const workbook = new ExcelJS.Workbook();
+const overview = workbook.addWorksheet('Ringkasan');
+overview.addRows([['Kode Room', summary.session.code], ['Judul', summary.session.title], ['Peserta', summary.session.total_participants], ['Pertanyaan', summary.session.total_questions]]);
+const answers = workbook.addWorksheet('Jawaban');
+answers.addRow(['ID', 'Question ID', 'Participant', 'Content', 'Correct', 'Points', 'Duration (sec)', 'Stars', 'Submitted At']);
+for (const answer of summary.answers as any[]) answers.addRow([answer.id, answer.question_id, answer.participant_name, answer.content, !!answer.is_correct, answer.points_awarded || 0, answer.response_duration_sec || 0, answer.stars_earned || 0, new Date(answer.submitted_at)]);
+const participants = workbook.addWorksheet('Peserta');
+participants.addRow(['Participant ID', 'Name', 'Answers', 'Correct', 'Score', 'Stars']);
+const participantRows = new Map<string, any>();
+for (const answer of summary.answers as any[]) { const row = participantRows.get(answer.participant_id) || [answer.participant_id, answer.participant_name, 0, 0, 0, 0]; row[2]++; row[3] += answer.is_correct ? 1 : 0; row[4] += answer.points_awarded || 0; row[5] += answer.stars_earned || 0; participantRows.set(answer.participant_id, row); }
+for (const row of participantRows.values()) participants.addRow(row);
+const questions = workbook.addWorksheet('Pertanyaan');
+questions.addRow(['Question ID', 'Answers', 'Correct', 'Points', 'Average Duration (sec)']);
+const questionRows = new Map<string, any>();
+for (const answer of summary.answers as any[]) { const row = questionRows.get(answer.question_id) || [answer.question_id, 0, 0, 0, 0]; row[1]++; row[2] += answer.is_correct ? 1 : 0; row[3] += answer.points_awarded || 0; row[4] += answer.response_duration_sec || 0; questionRows.set(answer.question_id, row); }
+for (const row of questionRows.values()) { row[4] = row[1] ? Number((row[4] / row[1]).toFixed(1)) : 0; questions.addRow(row); }
+res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+res.setHeader('Content-Disposition', `attachment; filename="inixpoint-report-${req.params.code}.xlsx"`);
+await workbook.xlsx.write(res);
+res.end();
 });
 
 const denyHost = (socketId: string, event: string) =>

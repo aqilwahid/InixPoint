@@ -159,6 +159,11 @@ export class RoomManager {
 
     const participant = room.participants[participantId];
     if (!participant) return undefined;
+    if (question.type === 'image_upload' && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(content)) return undefined;
+    if (question.type === 'image_upload') {
+    const [, data = ''] = content.split(',', 2);
+    if (Buffer.byteLength(data, 'base64') > 5 * 1024 * 1024) return undefined;
+    }
 
     // Initialize stats if not present
     if (!participant.answeredCount) participant.answeredCount = 0;
@@ -233,11 +238,10 @@ export class RoomManager {
       const oldAnswer = room.answers[questionId][existingIndex];
       if (oldAnswer.isCorrect && !isCorrect) {
         participant.correctCount = Math.max(0, (participant.correctCount || 0) - 1);
-        participant.stars = Math.max(0, (participant.stars || 0) - 1);
       } else if (!oldAnswer.isCorrect && isCorrect) {
         participant.correctCount = (participant.correctCount || 0) + 1;
-        participant.stars = (participant.stars || 0) + 1;
       }
+        participant.stars = Math.max(0, (participant.stars || 0) - (oldAnswer.starsEarned || 0) + starsEarned);
     }
 
     // Update score

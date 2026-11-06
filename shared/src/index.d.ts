@@ -121,7 +121,7 @@ export interface ServerToClientEvents {
         participantId: string;
         count: number;
         totalStars: number;
-    }, callback?: (res: { success: boolean; error?: string }) => void) => void;
+    }) => void;
     'question-started': (question: Question) => void;
     'question-closed': (summary: {
         questionId: string;
@@ -216,7 +216,7 @@ export interface ClientToServerEvents {
             title: string;
             imageUrl?: string;
         };
-    }) => void;
+    }, callback?: (res: { success: boolean; error?: string }) => void) => void;
     'award-star': (payload: {
         code: string;
         hostToken: string;

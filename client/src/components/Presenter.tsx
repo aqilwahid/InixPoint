@@ -46,7 +46,8 @@ import {
   Timer,
   CheckCircle,
   HelpCircle,
-  RotateCcw
+  RotateCcw,
+  FileImage
 } from 'lucide-react';
 
 interface PresenterProps {
@@ -67,8 +68,8 @@ const POLL_TEMPLATES: Record<QuickPollTemplate, { name: string; options: QuickPo
     ]
   },
   yes_no: {
-    name: 'Ya / Tidak / Ragu',
-    options: [
+  name: 'Ya / Tidak',
+  options: [
       { id: 'yes', label: 'Ya / Setuju', emoji: '👍', color: '#10b981' },
       { id: 'no', label: 'Tidak', emoji: '👎', color: '#ef4444' },
       { id: 'unsure', label: 'Belum Yakin', emoji: '🤔', color: '#f59e0b' }
@@ -103,6 +104,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
     { id: '2', left: 'Jepang', right: 'Tokyo' },
     { id: '3', left: 'Perancis', right: 'Paris' }
   ]);
+  const [rankingItemsInput, setRankingItemsInput] = useState('Pertama\nKedua\nKetiga');
+  const [fillAnswersInput, setFillAnswersInput] = useState('');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [pollTemplate, setPollTemplate] = useState<QuickPollTemplate>('likert_5');
   const [correctIndex, setCorrectIndex] = useState<number | undefined>(undefined);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -169,6 +173,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       setActiveTab(room.currentQuestion.type);
     }
   }, [room.currentQuestion?.status, room.currentQuestion?.type]);
+  useEffect(() => {
+  const slide = deck?.slides[deck.currentSlideIndex];
+  if (slide) socket.emit('broadcast-slide', { code: room.code, hostToken, slide: { index: deck.currentSlideIndex, title: slide.title, imageUrl: slide.imageUrl } });
+  }, [deck?.currentSlideIndex, deck?.slides, room.code, hostToken]);
 
   // ponytail: sync body dark background in presenter mode to eliminate white scroll bounce / gaps
   useEffect(() => {
@@ -372,6 +380,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       type: activeTab,
       prompt: finalPrompt,
       timeLimitSec: timeLimitSec > 0 ? timeLimitSec : undefined,
+    difficulty,
+    correctAnswers: activeTab === 'short_answer' ? fillAnswersInput.split('\n').map(answer => answer.trim()).filter(Boolean) : undefined,
       options: activeTab === 'multiple_choice' ? {
         choices: optionsInput.filter(o => o.trim().length > 0),
         correctIndex,
@@ -383,6 +393,9 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       } : activeTab === 'quick_poll' ? {
         template: pollTemplate,
         options: POLL_TEMPLATES[pollTemplate].options
+      } : activeTab === 'ranking' ? {
+      items: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean),
+      correctOrder: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean)
       } : undefined
     };
 
@@ -735,6 +748,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                 <Vote className="w-4 h-4" />
                 <span>Quick Poll</span>
               </button>
+                <button type="button" disabled={isQuestionActive} onClick={() => setActiveTab('ranking')} className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'ranking' ? 'bg-brand-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><BarChart3 className="w-4 h-4" /><span>Ranking</span></button>
+                <button type="button" disabled={isQuestionActive} onClick={() => setActiveTab('image_upload')} className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'image_upload' ? 'bg-brand-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><FileImage className="w-4 h-4" /><span>Unggah Gambar</span></button>
             </div>
 
             {/* Config Fields */}
@@ -760,6 +775,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                   />
                   <span className="text-xs text-slate-500 mt-0.5">0 = tanpa batas</span>
                 </label>
+                <label className="flex flex-col"><span className="text-xs font-semibold text-slate-400 mb-1">Kesulitan / Bintang</span><select value={difficulty} onChange={(e) => setDifficulty(e.target.value as typeof difficulty)} className="bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm"><option value="easy">Mudah — 1 ⭐</option><option value="medium">Sedang — 2 ⭐</option><option value="hard">Sulit — 3 ⭐</option></select></label>
               </div>
 
               {activeTab === 'multiple_choice' && (
@@ -809,6 +825,30 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                         <Plus className="w-3.5 h-3.5" />
                         <span>Tambah Pasangan</span>
                       </button>
+                    )}
+
+                    {activeTab !== 'matching' && activeTab === 'ranking' && (
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-400">Urutan benar (satu item per baris)</span>
+                        <textarea
+                          rows={4}
+                          value={rankingItemsInput}
+                          onChange={(e) => setRankingItemsInput(e.target.value)}
+                          className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm"
+                        />
+                      </label>
+                    )}
+                    {activeTab !== 'matching' && activeTab === 'short_answer' && (
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-400">Jawaban benar, satu per baris (opsional)</span>
+                        <textarea
+                          rows={2}
+                          value={fillAnswersInput}
+                          onChange={(e) => setFillAnswersInput(e.target.value)}
+                          className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm"
+                          placeholder="Contoh: Jakarta"
+                        />
+                      </label>
                     )}
                   </div>
                   <div className="space-y-2">

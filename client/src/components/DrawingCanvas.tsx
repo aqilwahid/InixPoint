@@ -19,9 +19,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled, 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Fill white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (backgroundImage) {
+      const image = new Image();
+      image.onload = () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      image.src = backgroundImage;
+    }
   }, [backgroundImage]);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
@@ -82,6 +86,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onSave, disabled, 
     if (!ctx) return;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (backgroundImage) {
+      const image = new Image();
+      image.onload = () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      image.src = backgroundImage;
+    }
     setHasDrawn(false);
     onSave('');
   };

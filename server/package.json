@@ -6,14 +6,16 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx src/test-matching.ts && tsx src/test-ux-features.ts && tsx src/test-gamification.ts && tsx src/test-quick-poll.ts && tsx src/test-host-token.ts && tsx src/test-timer.ts && tsx src/test-qna.ts && tsx src/test-reconnect.ts",
+    "test": "tsx src/test-matching.ts && tsx src/test-ux-features.ts && tsx src/test-gamification.ts && tsx src/test-quick-poll.ts && tsx src/test-host-token.ts && tsx src/test-timer.ts && tsx src/test-qna.ts && tsx src/test-reconnect.ts && tsx src/test-r3.ts",
     "load-test": "tsx src/load-test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.3",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -169,7 +169,7 @@ export interface ClientToServerEvents {
   'upvote-qna': (payload: { code: string; qnaId: string }, callback?: (res: { success: boolean; error?: string }) => void) => void;
   'mark-qna': (payload: { code: string; hostToken: string; qnaId: string; status: 'answered' | 'ignored' | 'open' }) => void;
   'set-qna-enabled': (payload: { code: string; hostToken: string; enabled: boolean }) => void;
-  'broadcast-slide': (payload: { code: string; hostToken: string; slide: { index: number; title: string; imageUrl?: string } }) => void;
+  'broadcast-slide': (payload: { code: string; hostToken: string; slide: { index: number; title: string; imageUrl?: string } }, callback?: (res: { success: boolean; error?: string }) => void) => void;
   'award-star': (payload: { code: string; hostToken: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
   'close-room': (payload: { code: string; hostToken: string }) => void;
   'kick-participant': (payload: { code: string; hostToken: string; participantId: string }) => void;

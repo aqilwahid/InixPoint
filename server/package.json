@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx src/test-matching.ts && tsx src/test-ux-features.ts && tsx src/test-gamification.ts && tsx src/test-quick-poll.ts"
+    "test": "tsx src/test-matching.ts && tsx src/test-ux-features.ts && tsx src/test-gamification.ts && tsx src/test-quick-poll.ts && tsx src/test-host-token.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

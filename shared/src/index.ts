@@ -5,7 +5,8 @@ export type QuestionType =
   | 'slide_drawing'
   | 'matching'
   | 'ranking'
-  | 'quick_poll';
+  | 'quick_poll'
+  | 'live_qna'; // ponnytail: added for Live Q&A feature
 
 export interface Participant {
   id: string; // socket.id or user session id
@@ -89,6 +90,18 @@ export interface Room {
   currentQuestion?: Question;
   questions: Question[];
   answers: Record<string, Answer[]>; // questionId -> list of Answers
+  qna: QnaItem[]; // live Q&A entries
+  createdAt: number;
+}
+
+// Live Q&A item definition
+export interface QnaItem {
+  id: string;
+  participantId: string;
+  participantName: string;
+  content: string; // question text
+  upvotes: number;
+  answered: boolean;
   createdAt: number;
 }
 
@@ -102,16 +115,21 @@ export interface ServerToClientEvents {
   'question-started': (question: Question) => void;
   'question-closed': (summary: { questionId: string; answers: Answer[] }) => void;
   'answer-received': (answer: Answer) => void;
+  'qna-updated': (item: QnaItem) => void;
+  'qna-state': (items: QnaItem[]) => void;
   'room-closed': () => void;
   'error-message': (msg: string) => void;
 }
 
 export interface ClientToServerEvents {
-  'create-room': (payload: { title: string }, callback: (res: { success: boolean; room?: Room; error?: string }) => void) => void;
+  'create-room': (payload: { title: string }, callback: (res: { success: boolean; room?: Room; hostToken?: string; error?: string }) => void) => void;
   'join-room': (payload: { code: string; name: string }, callback: (res: { success: boolean; room?: Room; error?: string }) => void) => void;
-  'start-question': (payload: { code: string; question: Omit<Question, 'id' | 'status' | 'createdAt'> }) => void;
-  'close-question': (payload: { code: string; questionId: string }) => void;
+  'start-question': (payload: { code: string; hostToken: string; question: Omit<Question, 'id' | 'status' | 'createdAt'> }) => void;
+  'close-question': (payload: { code: string; hostToken: string; questionId: string }) => void;
   'submit-answer': (payload: { code: string; questionId: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
-  'award-star': (payload: { code: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
+  'submit-qna': (payload: { code: string; content: string }, callback: (res: { success: boolean; error?: string }) => void) => void;
+  'upvote-qna': (payload: { code: string; qnaId: string }, callback?: (res: { success: boolean; error?: string }) => void) => void;
+  'mark-qna': (payload: { code: string; hostToken: string; qnaId: string; answered: boolean }) => void;
+  'award-star': (payload: { code: string; hostToken: string; participantId: string; count?: number }, callback?: (res: { success: boolean; stars?: number; error?: string }) => void) => void;
   'leave-room': (payload: { code: string }) => void;
 }

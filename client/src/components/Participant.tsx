@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../lib/socket';
-import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
+import { Room, Question, MultipleChoiceOptions, MatchingOptions, QuickPollOptions, QnaItem } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
 import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
@@ -62,8 +62,23 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       socket.off('room-closed');
       socket.off('star-awarded');
       socket.off('participant-updated');
+      socket.off('qna-updated');
     };
   }, [onLeave]);
+
+  // Q&A submission state
+  const [qnaInput, setQnaInput] = useState<string>('');
+  const handleQnaSubmit = () => {
+    const content = qnaInput.trim();
+    if (!content) return;
+    socket.emit('submit-qna', { code: room.code, content }, (res: any) => {
+      if (res.success) {
+        setQnaInput('');
+      } else {
+        alert(res.error || 'Gagal mengirim pertanyaan');
+      }
+    });
+  };
 
   const handleSubmit = (content: string) => {
     if (!currentQuestion || !content.trim()) return;
@@ -297,6 +312,23 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
             )}
           </div>
         )}
+        {/* Live Q&A Section */}
+        <div className="mt-8 w-full max-w-2xl">
+          <h3 className="text-lg font-semibold mb-2 text-neutral-800">Live Q&amp;A</h3>
+          <div className="flex space-x-2 mb-4">
+            <input
+              type="text"
+              placeholder="Kirim pertanyaan Anda..."
+              value={qnaInput}
+              onChange={e => setQnaInput(e.target.value)}
+              className="flex-1 input-base"
+            />
+            <button onClick={handleQnaSubmit} className="btn-primary">
+              Kirim
+            </button>
+          </div>
+          {/* TODO: render list of Q&A items with upvote button */}
+        </div>
       </main>
 
       {/* Footer */}

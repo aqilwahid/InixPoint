@@ -8,6 +8,7 @@ import { Users, Presentation, ArrowRight } from 'lucide-react';
 export const App: React.FC = () => {
   const [mode, setMode] = useState<'landing' | 'presenter' | 'participant'>('landing');
   const [room, setRoom] = useState<Room | null>(null);
+  const [hostToken, setHostToken] = useState('');
 
   // Form states
   const [createTitle, setCreateTitle] = useState('Pelatihan DPPP InixJogja');
@@ -34,8 +35,9 @@ export const App: React.FC = () => {
 
     socket.emit('create-room', { title: createTitle }, (res: any) => {
       setLoading(false);
-      if (res.success && res.room) {
+      if (res.success && res.room && res.hostToken) {
         setRoom(res.room);
+        setHostToken(res.hostToken);
         setMode('presenter');
       } else {
         setErrorMessage(res.error || 'Gagal membuat ruangan kuis');
@@ -64,8 +66,8 @@ export const App: React.FC = () => {
     });
   };
 
-  if (mode === 'presenter' && room) {
-    return <Presenter room={room} onExit={() => { setRoom(null); setMode('landing'); }} />;
+  if (mode === 'presenter' && room && hostToken) {
+    return <Presenter room={room} hostToken={hostToken} onExit={() => { setRoom(null); setHostToken(''); setMode('landing'); }} />;
   }
 
   if (mode === 'participant' && room) {

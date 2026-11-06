@@ -37,11 +37,17 @@ import {
   ChevronRight,
   X,
   Maximize2,
-  Quote
+  Quote,
+  Dice5,
+  Timer,
+  CheckCircle,
+  HelpCircle,
+  RotateCcw
 } from 'lucide-react';
 
 interface PresenterProps {
   room: Room;
+  hostToken: string;
   onExit: () => void;
 }
 
@@ -83,7 +89,7 @@ const POLL_TEMPLATES: Record<QuickPollTemplate, { name: string; options: QuickPo
   }
 };
 
-export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit }) => {
+export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostToken, onExit }) => {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [activeTab, setActiveTab] = useState<QuestionType>('multiple_choice');
   const [promptInput, setPromptInput] = useState('');
@@ -107,6 +113,41 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
   const participantList = Object.values(room.participants || {});
   const joinUrl = `${window.location.origin}/#join-${room.code}`;
   const isQuestionActive = room.currentQuestion?.status === 'active';
+
+  // R2 P-11: Random Name Picker state
+  const [showPickerModal, setShowPickerModal] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
+  const [pickedName, setPickedName] = useState<string | null>(null);
+
+  // R2 P-12: Free Timer / Stopwatch state
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [freeTimerMode, setFreeTimerMode] = useState<'countdown' | 'stopwatch'>('countdown');
+  const [freeTimerSeconds, setFreeTimerSeconds] = useState(180); // default 3 mins
+  const [freeTimerRunning, setFreeTimerRunning] = useState(false);
+  const [freeTimerInput, setFreeTimerInput] = useState(3);
+
+  // Free timer interval
+  useEffect(() => {
+    let interval: any = null;
+    if (freeTimerRunning) {
+      interval = setInterval(() => {
+        setFreeTimerSeconds((prev) => {
+          if (freeTimerMode === 'countdown') {
+            if (prev <= 1) {
+              setFreeTimerRunning(false);
+              return 0;
+            }
+            return prev - 1;
+          } else {
+            return prev + 1;
+          }
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [freeTimerRunning, freeTimerMode]);
 
   // ponytail: sync activeTab with running question type; upgrade to question queue later
   useEffect(() => {
@@ -302,6 +343,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
     setActiveShortAnswerIndex(null);
     socket.emit('start-question', {
       code: room.code,
+      hostToken,
       question: questionPayload
     });
 
@@ -320,6 +362,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
     if (!room.currentQuestion) return;
     setIsBgmPlaying(false);
     socket.emit('close-question', {
+      hostToken,
       code: room.code,
       questionId: room.currentQuestion.id
     });
@@ -331,6 +374,28 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
 
   const handleExportCSV = () => {
     window.open(`http://${window.location.hostname}:4000/api/reports/${room.code}/csv`, '_blank');
+  };
+
+  // R2 P-11: Start spinning random name
+  const handlePickRandomName = () => {
+    const candidates = participantList.filter(p => p.connected);
+    if (candidates.length === 0) {
+      alert('Belum ada peserta yang tersambung.');
+      return;
+    }
+    setIsPicking(true);
+    setPickedName(null);
+    let counter = 0;
+    const maxCycles = 20;
+    const interval = setInterval(() => {
+      const randomIdx = Math.floor(Math.random() * candidates.length);
+      setPickedName(candidates[randomIdx].name);
+      counter++;
+      if (counter >= maxCycles) {
+        clearInterval(interval);
+        setIsPicking(false);
+      }
+    }, 100);
   };
 
   // Multiple choice tally
@@ -374,11 +439,36 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
           </div>
 
           {/* Room Code & Stats */}
-          <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 flex-shrink-0">
+            {/* R2 P-11: Name Picker */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowPickerModal(true);
+                setPickedName(null);
+              }}
+              className="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition"
+              title="Pilih Nama Peserta Acak (Random Name Picker)"
+            >
+              <Dice5 className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden md:inline">Acak Nama</span>
+            </button>
+
+            {/* R2 P-12: Free Timer / Stopwatch */}
+            <button
+              type="button"
+              onClick={() => setShowTimerModal(true)}
+              className="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-200 transition"
+              title="Timer & Stopwatch Bebas"
+            >
+              <Timer className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden md:inline">Timer</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setShowQRModal(true)}
-              className="flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-500 text-white px-2.5 sm:px-3.5 py-1.5 rounded-lg font-bold text-xs sm:text-sm shadow transition flex-shrink-0"
+              className="flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-500 text-white px-2.5 sm:px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm shadow transition flex-shrink-0"
               title="Tampilkan QR Code dan PIN"
             >
               <QrCode className="w-4 h-4 flex-shrink-0" />
@@ -1058,35 +1148,66 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
           </div>
         </main>
 
-        {/* Right Sidebar: Connected Participants */}
+        {/* Right Sidebar: Connected Participants & R2 P-07 Live Submission Status */}
         <aside className="w-full md:w-72 bg-slate-800/90 border-t md:border-t-0 md:border-l border-slate-700 p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
               <Users className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Daftar Hadir ({participantList.length})
             </h3>
+            {isQuestionActive && (
+              <span className="text-[11px] font-mono font-bold text-brand-300 bg-brand-900/60 border border-brand-500/30 px-2 py-0.5 rounded-full">
+                {receivedAnswers.length}/{participantList.length} Jawab
+              </span>
+            )}
           </div>
+
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
             {participantList.length === 0 ? (
               <p className="text-xs text-slate-500 text-center py-6">
                 Belum ada peserta yang bergabung. Bagikan PIN atau QR Code!
               </p>
             ) : (
-              participantList.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-700/50 text-xs"
-                >
-                  <div className="flex items-center space-x-2 truncate">
-                    <span className={`w-2 h-2 rounded-full ${p.connected ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                    <span className="font-semibold text-slate-200 truncate">{p.name}</span>
+              participantList.map((p) => {
+                const answer = receivedAnswers.find(a => a.participantId === p.id);
+                const hasSubmitted = !!answer;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between p-2 rounded-lg text-xs transition border ${
+                      isQuestionActive && hasSubmitted
+                        ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                        : isQuestionActive && !hasSubmitted
+                        ? 'bg-slate-800/80 border-slate-700/60 text-slate-400'
+                        : 'bg-slate-700/50 border-transparent text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.connected ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                      <span className="font-semibold truncate">{p.name}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 flex-shrink-0 ml-2">
+                      {isQuestionActive && (
+                        hasSubmitted ? (
+                          <span className="inline-flex items-center text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Sudah mengirimkan jawaban">
+                            <CheckCircle className="w-3 h-3 mr-0.5" /> Jawab
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded" title="Menunggu jawaban...">
+                            <HelpCircle className="w-3 h-3 mr-0.5 text-slate-500" /> Tunggu
+                          </span>
+                        )
+                      )}
+
+                      {p.score > 0 && (
+                        <span className="text-amber-400 font-mono font-bold flex items-center text-[11px]">
+                          <Trophy className="w-3 h-3 mr-0.5" /> {p.score}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {p.score > 0 && (
-                    <span className="text-amber-400 font-mono font-bold flex items-center">
-                      <Trophy className="w-3 h-3 mr-0.5" /> {p.score}
-                    </span>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </aside>
@@ -1125,6 +1246,184 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, onExit 
             >
               Tutup Layar PIN
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* R2 P-11: Random Name Picker Modal */}
+      {showPickerModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+          onClick={() => !isPicking && setShowPickerModal(false)}
+        >
+          <div
+            className="bg-slate-800 border border-slate-700 text-white rounded-3xl p-6 sm:p-8 max-w-sm sm:max-w-md w-full text-center shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-bold flex items-center text-amber-400">
+                <Dice5 className="w-5 h-5 mr-2" /> Random Name Picker
+              </h3>
+              {!isPicking && (
+                <button
+                  type="button"
+                  onClick={() => setShowPickerModal(false)}
+                  className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-400 mb-6">
+              Pilih peserta secara acak dari total <strong className="text-white">{participantList.filter(p => p.connected).length} peserta aktif</strong>.
+            </p>
+
+            {/* Display Box */}
+            <div className="bg-slate-900 border-2 border-brand-500/50 rounded-2xl py-10 px-4 mb-6 shadow-inner flex flex-col items-center justify-center min-h-[140px]">
+              {pickedName ? (
+                <div className="animate-in zoom-in-90 duration-150">
+                  <span className="text-2xl sm:text-3xl font-black text-amber-300 tracking-wide font-sans block mb-1">
+                    🎉 {pickedName}
+                  </span>
+                  {!isPicking && (
+                    <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">
+                      Terpilih!
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-sm text-slate-500 font-medium">
+                  Tekan tombol di bawah untuk mengacak
+                </span>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={isPicking || participantList.filter(p => p.connected).length === 0}
+                onClick={handlePickRandomName}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black py-3 rounded-xl shadow transition flex items-center justify-center space-x-2 text-sm"
+              >
+                <Dice5 className="w-4 h-4" />
+                <span>{isPicking ? 'Sedang Mengacak...' : 'Putar / Acak Nama'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* R2 P-12: Free Timer / Stopwatch Modal */}
+      {showTimerModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+          onClick={() => setShowTimerModal(false)}
+        >
+          <div
+            className="bg-slate-800 border border-slate-700 text-white rounded-3xl p-6 sm:p-8 max-w-sm sm:max-w-md w-full text-center shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-bold flex items-center text-sky-400">
+                <Timer className="w-5 h-5 mr-2" /> Timer & Stopwatch Kelas
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTimerModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mode Switcher */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900 rounded-xl mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setFreeTimerMode('countdown');
+                  setFreeTimerRunning(false);
+                  setFreeTimerSeconds(freeTimerInput * 60);
+                }}
+                className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                  freeTimerMode === 'countdown' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Countdown Timer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFreeTimerMode('stopwatch');
+                  setFreeTimerRunning(false);
+                  setFreeTimerSeconds(0);
+                }}
+                className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                  freeTimerMode === 'stopwatch' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Stopwatch
+              </button>
+            </div>
+
+            {/* Timer Large Display */}
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl py-8 px-4 mb-6 shadow-inner">
+              <span className="text-5xl sm:text-6xl font-mono font-black text-sky-400 tracking-wider">
+                {formatTime(freeTimerSeconds)}
+              </span>
+            </div>
+
+            {/* Quick Preset Buttons for Countdown */}
+            {freeTimerMode === 'countdown' && !freeTimerRunning && (
+              <div className="flex justify-center gap-2 mb-6">
+                {[1, 3, 5, 10].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => {
+                      setFreeTimerInput(mins);
+                      setFreeTimerSeconds(mins * 60);
+                    }}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${
+                      freeTimerInput === mins
+                        ? 'bg-sky-600/30 border-sky-400 text-sky-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Controls */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setFreeTimerRunning(r => !r)}
+                className={`flex-1 font-bold py-3 rounded-xl shadow transition text-sm flex items-center justify-center space-x-2 ${
+                  freeTimerRunning
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                    : 'bg-sky-600 hover:bg-sky-500 text-white'
+                }`}
+              >
+                {freeTimerRunning ? <Square className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white" />}
+                <span>{freeTimerRunning ? 'Jeda (Pause)' : 'Mulai (Start)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFreeTimerRunning(false);
+                  setFreeTimerSeconds(freeTimerMode === 'countdown' ? freeTimerInput * 60 : 0);
+                }}
+                className="px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl transition flex items-center justify-center"
+                title="Reset Waktu"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

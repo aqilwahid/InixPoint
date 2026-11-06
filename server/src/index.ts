@@ -69,6 +69,9 @@ app.get('/api/reports/:code/csv', (req, res) => {
   res.send(csv);
 });
 
+const denyHost = (socketId: string, event: string) =>
+  console.warn(`[Security] Host token invalid: ${event} from ${socketId}`);
+
 io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id}`);
 
@@ -77,7 +80,7 @@ io.on('connection', (socket) => {
       const room = roomManager.createRoom(payload.title, socket.id);
       socket.join(room.code);
       console.log(`[Room] Created room ${room.code} by host ${socket.id}`);
-      callback({ success: true, room });
+      callback({ success: true, room, hostToken: roomManager.getHostToken(room.code) });
     } catch (err: any) {
       callback({ success: false, error: err.message });
     }
@@ -98,6 +101,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('start-question', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'start-question');
     const question = roomManager.startQuestion(payload.code, payload.question);
     if (question) {
       console.log(`[Question] Started ${question.type} in room ${payload.code}`);
@@ -117,7 +121,27 @@ io.on('connection', (socket) => {
     callback({ success: true });
   });
 
+  socket.on('submit-qna', (payload, callback) => {
+  const content = payload.content.trim();
+  if (!content || content.length > 500) return callback({ success: false, error: 'Pertanyaan harus 1–500 karakter' });
+  const item = roomManager.submitQna(payload.code, socket.id, content);
+  if (!item) return callback({ success: false, error: 'Peserta atau ruangan tidak ditemukan' });
+  io.to(payload.code).emit('qna-updated', item);
+  callback({ success: true });
+  });
+  socket.on('upvote-qna', (payload, callback) => {
+  const item = roomManager.upvoteQna(payload.code, payload.qnaId);
+  if (!item) return callback?.({ success: false, error: 'Pertanyaan tidak ditemukan' });
+  io.to(payload.code).emit('qna-updated', item);
+  callback?.({ success: true });
+  });
+  socket.on('mark-qna', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'mark-qna');
+    const item = roomManager.markQna(payload.code, payload.qnaId, payload.answered);
+  if (item) io.to(payload.code).emit('qna-updated', item);
+  });
   socket.on('close-question', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'close-question');
     const closed = roomManager.closeQuestion(payload.code, payload.questionId);
     if (closed) {
       console.log(`[Question] Closed question ${payload.questionId} in room ${payload.code}`);
@@ -126,6 +150,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('award-star', (payload, callback) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) {
+      denyHost(socket.id, 'award-star');
+      return callback?.({ success: false, error: 'Akses presenter ditolak' });
+    }
     const count = payload.count ?? 1;
     const updated = roomManager.awardStar(payload.code, payload.participantId, count);
     if (!updated) {

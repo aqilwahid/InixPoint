@@ -1,9 +1,22 @@
-import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions } from '@inixpoint/shared';
+import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions, QnaItem } from '@inixpoint/shared';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { saveRoomReport } from './db.js';
 
 export class RoomManager {
   // in-memory map for fast state
   private rooms = new Map<string, Room>();
+  // Host tokens stay server-side: Room is broadcast to participants, so never put the token in it.
+  private hostTokens = new Map<string, string>();
+
+  getHostToken(code: string): string | undefined {
+    return this.hostTokens.get(code);
+  }
+
+  verifyHost(code: string, token: unknown): boolean {
+    const expected = this.hostTokens.get(code);
+    if (!expected || typeof token !== 'string' || token.length !== expected.length) return false;
+    return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  }
   private socketToRoom = new Map<string, { code: string; isHost: boolean; participantId?: string }>();
 
   generateCode(): string {
@@ -24,10 +37,12 @@ export class RoomManager {
       participants: {},
       questions: [],
       answers: {},
+      qna: [], // ponnytail: live Q&A entries
       createdAt: Date.now()
     };
 
     this.rooms.set(code, room);
+    this.hostTokens.set(code, randomBytes(16).toString('hex'));
     this.socketToRoom.set(hostSocketId, { code, isHost: true });
     return room;
   }
@@ -189,6 +204,42 @@ export class RoomManager {
     const answers = room.answers[questionId] || [];
     saveRoomReport(room);
     return { questionId, answers };
+  }
+
+  // Live Q&A: participant submits a question
+  submitQna(code: string, participantId: string, content: string): QnaItem | undefined {
+    const room = this.rooms.get(code);
+    if (!room) return undefined;
+    const participant = room.participants[participantId];
+    if (!participant) return undefined;
+    const qna: QnaItem = {
+      id: 'qna_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      participantId,
+      participantName: participant.name,
+      content,
+      upvotes: 0,
+      answered: false,
+      createdAt: Date.now()
+    };
+    room.qna.push(qna);
+    return qna;
+  }
+
+  // Presenter upvotes a Q&A entry
+  upvoteQna(code: string, qnaId: string): QnaItem | undefined {
+    const room = this.rooms.get(code);
+    if (!room) return undefined;
+    const item = room.qna.find(q => q.id === qnaId);
+    if (!item) return undefined;
+    item.upvotes += 1;
+    return item;
+  }
+
+  markQna(code: string, qnaId: string, answered: boolean): QnaItem | undefined {
+    const item = this.rooms.get(code)?.qna.find(q => q.id === qnaId);
+    if (!item) return undefined;
+    item.answered = answered;
+    return item;
   }
 
   handleDisconnect(socketId: string): { room?: Room; leftParticipantId?: string; isHost?: boolean } {

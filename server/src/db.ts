@@ -9,6 +9,15 @@ export const db = new DatabaseSync(dbPath);
 
 export function initDatabase() {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'presenter',
+      created_at INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS quiz_sessions (
       code TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -16,7 +25,9 @@ export function initDatabase() {
       total_participants INTEGER DEFAULT 0,
       total_questions INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL,
-      closed_at INTEGER
+      closed_at INTEGER,
+      owner_id TEXT,
+      FOREIGN KEY (owner_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS quiz_answers (
@@ -38,6 +49,11 @@ export function initDatabase() {
       try { db.exec(`ALTER TABLE quiz_answers ADD COLUMN ${column} ${type}`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
       }
+      }
+
+      // R4 Migration: add owner_id to quiz_sessions
+      try { db.exec(`ALTER TABLE quiz_sessions ADD COLUMN owner_id TEXT REFERENCES users(id)`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
       }
 }
 

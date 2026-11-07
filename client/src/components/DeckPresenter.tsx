@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Deck, DeckSlide, Question, QuestionType } from '@inixpoint/shared';
+import { Deck, DeckSlide, Question, QuestionType, BUILTIN_PLUGINS } from '@inixpoint/shared';
 import { renderPdfToImages } from '../lib/pdfRenderer';
 import { 
   FileUp, 
@@ -155,6 +155,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
   const handleInsertActivitySlide = () => {
     if (!deck || !insertPrompt.trim()) return;
 
+    const samplePlugin = BUILTIN_PLUGINS[0];
     const newSlide: DeckSlide = {
       id: `act_${Date.now()}`,
       type: 'activity',
@@ -165,6 +166,13 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
         prompt: insertPrompt.trim(),
         options: insertSlideType === 'multiple_choice' ? {
           choices: ['Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D']
+        } : undefined,
+        pluginConfig: insertSlideType === 'plugin_game' ? {
+          pluginId: samplePlugin.manifest.id,
+          manifest: samplePlugin.manifest,
+          config: { rounds: 3 },
+          countTowardsLeaderboard: true,
+          html: samplePlugin.html
         } : undefined
       }
     };
@@ -432,6 +440,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
                   <option value="short_answer">Short Answer</option>
                   <option value="slide_drawing">Drawing</option>
                   <option value="quick_poll">Quick Poll</option>
+                  <option value="plugin_game">Game Plugin (Beta)</option>
                 </select>
               </div>
 

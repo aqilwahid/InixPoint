@@ -8,13 +8,15 @@ import {
   QuestionType,
   QuickPollTemplate,
   QuickPollOptions,
-  QuickPollOptionItem
+  QuickPollOptionItem,
+  Deck,
+  BUILTIN_PLUGINS
 } from '@inixpoint/shared';
 import { QRCodeSVG } from 'qrcode.react';
 import { Leaderboard } from './Leaderboard';
 import { AnnotationToolkit } from './AnnotationToolkit';
 import { DeckPresenter } from './DeckPresenter';
-import { Deck } from '@inixpoint/shared';
+import { PluginSandbox } from './PluginSandbox';
 import { 
   Users, 
   BarChart3, 
@@ -47,7 +49,8 @@ import {
   CheckCircle,
   HelpCircle,
   RotateCcw,
-  FileImage
+  FileImage,
+  Gamepad2
 } from 'lucide-react';
 
 interface PresenterProps {
@@ -113,6 +116,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const [showResponses, setShowResponses] = useState(true);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [activeShortAnswerIndex, setActiveShortAnswerIndex] = useState<number | null>(null);
+
+  // R5 Plugin Game state
+  const [selectedPluginId, setSelectedPluginId] = useState<string>('tebak-cepat');
+  const [pluginCountLeaderboard, setPluginCountLeaderboard] = useState<boolean>(true);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timeLimitSec, setTimeLimitSec] = useState(30);
   const [isBgmPlaying, setIsBgmPlaying] = useState(false);
@@ -370,7 +377,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   };
 
   const handleStartQuestion = () => {
-    const finalPrompt = promptInput.trim() || (activeTab === 'quick_poll' ? 'Bagaimana pendapat atau pilihan Anda?' : '');
+    const selectedPlugin = BUILTIN_PLUGINS.find(p => p.manifest.id === selectedPluginId) || BUILTIN_PLUGINS[0];
+    const finalPrompt = promptInput.trim() || (activeTab === 'quick_poll' ? 'Bagaimana pendapat atau pilihan Anda?' : activeTab === 'plugin_game' ? `Game Plugin: ${selectedPlugin.manifest.name}` : '');
     if (!finalPrompt) {
       alert('Silakan tuliskan pertanyaan/instruksi terlebih dahulu.');
       return;
@@ -380,8 +388,8 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       type: activeTab,
       prompt: finalPrompt,
       timeLimitSec: timeLimitSec > 0 ? timeLimitSec : undefined,
-    difficulty,
-    correctAnswers: activeTab === 'short_answer' ? fillAnswersInput.split('\n').map(answer => answer.trim()).filter(Boolean) : undefined,
+      difficulty,
+      correctAnswers: activeTab === 'short_answer' ? fillAnswersInput.split('\n').map(answer => answer.trim()).filter(Boolean) : undefined,
       options: activeTab === 'multiple_choice' ? {
         choices: optionsInput.filter(o => o.trim().length > 0),
         correctIndex,
@@ -394,8 +402,17 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
         template: pollTemplate,
         options: POLL_TEMPLATES[pollTemplate].options
       } : activeTab === 'ranking' ? {
-      items: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean),
-      correctOrder: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean)
+        items: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean),
+        correctOrder: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean)
+      } : undefined,
+      pluginConfig: activeTab === 'plugin_game' ? {
+        pluginId: selectedPlugin.manifest.id,
+        manifest: selectedPlugin.manifest,
+        config: selectedPlugin.manifest.config ? Object.fromEntries(
+          Object.entries(selectedPlugin.manifest.config).map(([k, v]) => [k, v.default])
+        ) : {},
+        countTowardsLeaderboard: pluginCountLeaderboard,
+        html: selectedPlugin.html
       } : undefined
     };
 
@@ -750,6 +767,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
               </button>
                 <button type="button" disabled={isQuestionActive} onClick={() => setActiveTab('ranking')} className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'ranking' ? 'bg-brand-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><BarChart3 className="w-4 h-4" /><span>Ranking</span></button>
                 <button type="button" disabled={isQuestionActive} onClick={() => setActiveTab('image_upload')} className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'image_upload' ? 'bg-brand-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><FileImage className="w-4 h-4" /><span>Unggah Gambar</span></button>
+              <button type="button" disabled={isQuestionActive} onClick={() => setActiveTab('plugin_game')} className={`flex items-center space-x-2 px-3 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'plugin_game' ? 'bg-pink-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'} ${isQuestionActive ? 'opacity-40 cursor-not-allowed' : ''}`}><Gamepad2 className="w-4 h-4 text-pink-400" /><span>Game Plugin (Beta)</span></button>
             </div>
 
             {/* Config Fields */}
@@ -947,22 +965,76 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                 </div>
               )}
 
-  </fieldset>
+              {activeTab === 'plugin_game' && (
+                <div className="space-y-3 pt-1">
+                  <div className="flex justify-between items-center text-xs text-slate-400 font-semibold px-1">
+                    <span>Pilih Game Plugin (Beta - R5):</span>
+                    <span className="text-pink-400 font-mono text-[11px] bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
+                      Iframe Sandbox
+                    </span>
+                  </div>
 
-                        <div className="flex justify-end space-x-3 pt-2">
-                {deck && room.currentQuestion && room.currentQuestion.status === 'closed' && (
-                  <button
-                    type="button"
-                    onClick={handleInsertResultAsSlide}
-                    className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl shadow transition text-xs sm:text-sm"
-                    title="Sisipkan Hasil Kuis Sebagai Slide Baru (D-05)"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Sisip Hasil ke Slide</span>
-                  </button>
-                )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {BUILTIN_PLUGINS.map((p) => {
+                      const isSelected = selectedPluginId === p.manifest.id;
+                      return (
+                        <button
+                          key={p.manifest.id}
+                          type="button"
+                          onClick={() => setSelectedPluginId(p.manifest.id)}
+                          className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-pink-950/40 border-pink-500 text-white shadow-lg ring-1 ring-pink-500/50'
+                              : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Gamepad2 className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                              <span className="font-bold text-sm text-white">{p.manifest.name}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 line-clamp-2">{p.manifest.description}</p>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-slate-800 flex justify-between items-center text-[11px] font-mono text-slate-500">
+                            <span>Maks: {p.manifest.scoring.maxPointsPerRound} Poin</span>
+                            <span>v{p.manifest.version}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {room.currentQuestion?.status === 'active' ? (
+                  <div className="flex items-center space-x-2 pt-2 px-1">
+                    <input
+                      type="checkbox"
+                      id="pluginScoreCheck"
+                      checked={pluginCountLeaderboard}
+                      onChange={(e) => setPluginCountLeaderboard(e.target.checked)}
+                      className="rounded border-slate-700 bg-slate-900 text-pink-600 focus:ring-pink-500"
+                    />
+                    <label htmlFor="pluginScoreCheck" className="text-xs text-slate-300 font-medium">
+                      Hitung skor game ini ke Live Leaderboard sesi (FR-18)
+                    </label>
+                  </div>
+                </div>
+              )}
+
+            </fieldset>
+
+            <div className="flex justify-end space-x-3 pt-2">
+              {deck && room.currentQuestion && room.currentQuestion.status === 'closed' && (
+                <button
+                  type="button"
+                  onClick={handleInsertResultAsSlide}
+                  className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl shadow transition text-xs sm:text-sm"
+                  title="Sisipkan Hasil Kuis Sebagai Slide Baru"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Sisip Hasil ke Slide</span>
+                </button>
+              )}
+
+              {room.currentQuestion?.status === 'active' ? (
                   <button
                     type="button"
                     onClick={handleCloseQuestion}
@@ -1270,6 +1342,22 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                     })}
                   </div>
                 )}
+                {/* R5 PLUGIN GAME SANDBOX VIEW */}
+                {room.currentQuestion.type === 'plugin_game' && room.currentQuestion.pluginConfig && (
+                  <div className="w-full flex-1 flex flex-col min-h-[500px] my-2">
+                    <PluginSandbox
+                      role="presenter"
+                      code={room.code}
+                      hostToken={hostToken}
+                      manifest={room.currentQuestion.pluginConfig.manifest}
+                      config={room.currentQuestion.pluginConfig.config}
+                      html={room.currentQuestion.pluginConfig.html || ''}
+                      participantCount={participantList.filter(p => p.connected).length}
+                      onClose={handleCloseQuestion}
+                    />
+                  </div>
+                )}
+
                 <Leaderboard 
                   participants={Object.values(room.participants || {})} 
                   title="🏆 Live Leaderboard" 

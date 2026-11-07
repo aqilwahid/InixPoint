@@ -8,6 +8,7 @@ import type {
 } from '@inixpoint/shared';
 import { initDatabase, getRoomSummary } from './db.js';
 import { RoomManager } from './roomManager.js';
+import { registerUser, loginUser, verifyToken, extractToken } from './auth.js';
 import ExcelJS from 'exceljs';
 
 const app = express();
@@ -23,6 +24,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 });
 
 const roomManager = new RoomManager();
+
+// R5 FR-17: Track plugin message rates per socket (max 10 messages/sec)
+const pluginMessageTimestamps = new Map<string, number[]>();
 
 // ponytail: auto-close expired questions; upgrade to per-question timer if precision needed
 setInterval(() => {
@@ -41,6 +45,37 @@ setInterval(() => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: Date.now(), service: 'InixPoint Server' });
+});
+
+// R4 Auth endpoints
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password || !name) return res.status(400).json({ success: false, error: 'Email, password, dan name wajib diisi' });
+  const result = await registerUser(email, password, name);
+  if (!result.success) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ success: false, error: 'Email dan password wajib diisi' });
+  const result = await loginUser(email, password);
+  if (!result.success) return res.status(400).json(result);
+  res.json(result);
+});
+
+// Middleware: verify token dari Authorization header (opsional untuk endpoint tertentu)
+function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const token = extractToken(req.headers.authorization);
+  if (!token) return res.status(401).json({ success: false, error: 'Token tidak ditemukan' });
+  const verification = verifyToken(token);
+  if (!verification.valid) return res.status(401).json({ success: false, error: 'Token tidak valid' });
+  (req as any).user = verification.payload;
+  next();
+}
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({ success: true, user: (req as any).user });
 });
 
 app.get('/api/reports/:code', (req, res) => {
@@ -257,7 +292,89 @@ io.on('connection', (socket) => {
     callback?.({ success: true, stars: updated.stars });
   });
 
+  // R5 PL-06 & FR-17: Relay plugin message between presenter and participants
+  socket.on('plugin-message', (payload) => {
+    const binding = roomManager.getSocketBinding(socket.id);
+    if (!binding || binding.code !== payload.code) return;
+    const room = roomManager.getRoom(payload.code);
+    if (!room || room.currentQuestion?.type !== 'plugin_game') return;
+
+    // Rate limiting: 10 msg/sec per socket
+    const now = Date.now();
+    const timestamps = (pluginMessageTimestamps.get(socket.id) || []).filter(t => now - t < 1000);
+    if (timestamps.length >= 10) {
+      console.warn(`[Plugin] Rate limit exceeded (>10 msg/s) from socket ${socket.id}`);
+      return;
+    }
+    timestamps.push(now);
+    pluginMessageTimestamps.set(socket.id, timestamps);
+
+    // Size limit: 4 KB (FR-17)
+    let serialized = '';
+    try {
+      serialized = JSON.stringify(payload.data);
+    } catch {
+      return;
+    }
+    if (Buffer.byteLength(serialized, 'utf8') > 4096) {
+      console.warn(`[Plugin] Message size exceeded (>4KB) from socket ${socket.id}`);
+      return;
+    }
+
+    if (binding.isHost) {
+      // Host message -> broadcast to room or targeted participant
+      if (payload.target === 'all' || !payload.target) {
+        io.to(payload.code).emit('plugin-message', {
+          fromRole: 'presenter',
+          senderId: socket.id,
+          data: payload.data
+        });
+      } else {
+        io.to(payload.target).emit('plugin-message', {
+          fromRole: 'presenter',
+          senderId: socket.id,
+          data: payload.data
+        });
+      }
+    } else {
+      // Participant message -> forward to host
+      const participant = room.participants[socket.id];
+      io.to(room.hostSocketId).emit('plugin-message', {
+        fromRole: 'participant',
+        senderId: socket.id,
+        senderName: participant?.name || 'Peserta',
+        data: payload.data
+      });
+    }
+  });
+
+  // R5 PL-07 & FR-5: Plugin score submission
+  socket.on('plugin-score', (payload, callback) => {
+    const result = roomManager.submitPluginScore(payload.code, socket.id, payload.points, payload.meta);
+    if (!result.success) {
+      return callback?.({ success: false, error: result.error });
+    }
+    if (result.participant) {
+      io.to(payload.code).emit('participant-updated', result.participant);
+    }
+    callback?.({ success: true, pointsAwarded: result.pointsAwarded });
+  });
+
+  // R5 Plugin end by host
+  socket.on('plugin-end', (payload) => {
+    if (!roomManager.verifyHost(payload.code, payload.hostToken)) return denyHost(socket.id, 'plugin-end');
+    const room = roomManager.getRoom(payload.code);
+    if (room?.currentQuestion?.type === 'plugin_game') {
+      const closed = roomManager.closeQuestion(payload.code, room.currentQuestion.id);
+      if (closed) {
+        io.to(payload.code).emit('question-closed', closed);
+        io.to(payload.code).emit('plugin-stopped', payload.result);
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
+    pluginMessageTimestamps.delete(socket.id);
     const { room, leftParticipantId, isHost } = roomManager.handleDisconnect(socket.id);
     if (room) {
       if (isHost) {

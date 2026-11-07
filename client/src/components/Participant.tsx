@@ -3,6 +3,7 @@ import { socket } from '../lib/socket';
 import { Room, Question, QnaItem, MultipleChoiceOptions, MatchingOptions, QuickPollOptions } from '@inixpoint/shared';
 import { DrawingCanvas } from './DrawingCanvas';
 import { MatchingQuestion } from './MatchingQuestion';
+import { PluginSandbox } from './PluginSandbox';
 import { CheckCircle2, Clock, Send, Star } from 'lucide-react';
 
 interface ParticipantProps {
@@ -18,6 +19,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [imageError, setImageError] = useState('');
   const [broadcastSlide, setBroadcastSlide] = useState<{ index: number; title: string; imageUrl?: string } | null>(null);
   const [stars, setStars] = useState<number>(() => {
     const me = Object.values(initialRoom.participants || {}).find(p => p.name === participantName || p.id === socket.id);
@@ -174,7 +176,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
 
       {/* Floating Star Toast Banner */}
       {starToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-amber-950 px-4 py-2 rounded-2xl shadow-xl font-bold text-sm flex items-center space-x-2 animate-bounce border-2 border-amber-300">
+      <div role="status" aria-live="polite" className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-amber-950 px-4 py-2 rounded-2xl shadow-xl font-bold text-sm flex items-center space-x-2 animate-bounce border-2 border-amber-300">
           <Star className="w-4 h-4 fill-amber-950" />
           <span>{starToast}</span>
         </div>
@@ -231,15 +233,19 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
           </div>
         )}
         {currentQuestion.type === 'image_upload' && (
-          <div className="space-y-4">
-            <input type="file" accept="image/png,image/jpeg,image/webp" className="block w-full text-sm" onChange={(e) => {
+        <div className="space-y-4">
+        <label htmlFor="image-answer" className="block text-sm font-semibold text-neutral-800">Pilih gambar (PNG, JPEG, atau WebP, maksimal 5 MB)</label>
+        <input id="image-answer" type="file" accept="image/png,image/jpeg,image/webp" className="block min-h-11 w-full text-sm" onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              if (file.size > 5 * 1024 * 1024) { alert('Ukuran gambar maksimal 5 MB.'); return; }
+        setImageError('');
+        if (file.size > 5 * 1024 * 1024) { setAnswerInput(''); setImageError('Ukuran gambar melebihi batas 5 MB. Pilih file yang lebih kecil.'); e.currentTarget.value = ''; return; }
               const reader = new FileReader();
+        reader.onerror = () => setImageError('Gambar tidak dapat dibaca. Coba pilih file lain.');
               reader.onload = () => setAnswerInput(String(reader.result));
               reader.readAsDataURL(file);
             }} />
+        {imageError && <p role="alert" className="text-sm font-medium text-red-700">{imageError}</p>}
             {answerInput && <img src={answerInput} alt="Pratinjau jawaban" className="max-h-64 w-full object-contain rounded-lg border" />}
             <button type="button" disabled={!answerInput || isSubmitting} onClick={() => handleSubmit(answerInput)} className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50"><Send className="w-4 h-4" /><span>Kirim Gambar</span></button>
           </div>
@@ -373,6 +379,20 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {currentQuestion.type === 'plugin_game' && currentQuestion.pluginConfig && (
+              <div className="w-full flex-1 flex flex-col min-h-[460px] my-2">
+                <PluginSandbox
+                  role="participant"
+                  code={room.code}
+                  manifest={currentQuestion.pluginConfig.manifest}
+                  config={currentQuestion.pluginConfig.config}
+                  html={currentQuestion.pluginConfig.html || ''}
+                  participant={{ sessionId: socket.id || 'self', displayName: participantName }}
+                  participantCount={Object.keys(room.participants || {}).length}
+                />
               </div>
             )}
 

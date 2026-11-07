@@ -111,7 +111,55 @@
       "branch": "main",
       "targetPath": ".github/skills/vercel-cli-with-tokens",
       "sha": "279c8760375cb6a47a4a8a312b652b0745c6d776"
+    },
+    {
+      "id": "antislop",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop",
+      "sha": "1201674d8c95a890cc60b810f39c5146989b4ab9"
+    },
+    {
+      "id": "antislop-code",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop-code",
+      "sha": "cb31602ea8956c739abda138d41e99d66791b008"
+    },
+    {
+      "id": "antislop-layoutmobile",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop-layoutmobile",
+      "sha": "99afc77657f0d0ad51131e6b685e27913b1342fd"
+    },
+    {
+      "id": "antislop-human",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop-human",
+      "sha": "226378dbb1c4704eb4ef99123d1023bce2c6a037"
+    },
+    {
+      "id": "antislop-ui",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop-ui",
+      "sha": "588bd30e4e07e599a463e8d719eeb4222d950ed1"
+    },
+    {
+      "id": "antislop-copywriting",
+      "category": "skill",
+      "source": "miqdadbadjuber/anti-slop",
+      "branch": "main",
+      "targetPath": ".github/skills/antislop-copywriting",
+      "sha": "153d27226817febe97fb3ab03e1918d1a8f6a3ff"
     }
   ],
-  "updatedAt": "2026-11-04T09:12:50.957Z"
+  "updatedAt": "2026-11-07T00:32:55.570Z"
 }

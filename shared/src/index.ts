@@ -7,7 +7,8 @@ export type QuestionType =
   | 'ranking'
   | 'quick_poll'
   | 'live_qna' // ponytail: added for Live Q&A feature
-  | 'image_upload'; // Q-09 image upload activity
+  | 'image_upload' // Q-09 image upload activity
+  | 'plugin_game'; // Q-14 R5 Plugin Game (Beta)
 
 export interface Participant {
   id: string; // socket.id or user session id
@@ -58,11 +59,32 @@ export interface QuickPollOptions {
   options: QuickPollOptionItem[];
 }
 
+export interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description?: string;
+  views: ('presenter' | 'participant')[];
+  participants: { min: number; max: number };
+  scoring: { mode: 'points'; maxPointsPerRound: number };
+  config?: Record<string, { type: 'integer' | 'string'; default?: any; min?: number; max?: number; enum?: string[] }>;
+}
+
+export interface PluginRunConfig {
+  pluginId: string;
+  manifest: PluginManifest;
+  config: Record<string, any>;
+  countTowardsLeaderboard: boolean;
+  html?: string;
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
   prompt: string;
   options?: MultipleChoiceOptions | MatchingOptions | RankingOptions | QuickPollOptions;
+  pluginConfig?: PluginRunConfig;
   timeLimitSec?: number;
   timeStartedAt?: number; // for countdown timer
   status: 'pending' | 'active' | 'closed';
@@ -139,6 +161,39 @@ export interface Deck {
   currentSlideIndex: number;
 }
 
+// R4 User & Auth types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'presenter' | 'admin';
+  createdAt: number;
+}
+
+export interface AuthTokenPayload {
+  userId: string;
+  email: string;
+  role: 'presenter' | 'admin';
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user?: User;
+  token?: string;
+  error?: string;
+}
+
 // Socket.io payload contracts
 export interface ServerToClientEvents {
   'room-state': (room: Room) => void;
@@ -156,6 +211,10 @@ export interface ServerToClientEvents {
   'error-message': (msg: string) => void;
   'slide-changed': (slide: { index: number; title: string; imageUrl?: string }) => void;
   'anonymous-mode': (enabled: boolean) => void;
+  // R5 Plugin Game events
+  'plugin-started': (payload: { pluginId: string; manifest: PluginManifest; config: Record<string, any>; html: string }) => void;
+  'plugin-message': (payload: { fromRole: 'presenter' | 'participant'; senderId: string; senderName?: string; data: any }) => void;
+  'plugin-stopped': (summary?: any) => void;
 }
 
 export interface ClientToServerEvents {
@@ -174,4 +233,10 @@ export interface ClientToServerEvents {
   'close-room': (payload: { code: string; hostToken: string }) => void;
   'kick-participant': (payload: { code: string; hostToken: string; participantId: string }) => void;
   'leave-room': (payload: { code: string }) => void;
+  // R5 Plugin Game events
+  'plugin-message': (payload: { code: string; target?: 'presenter' | 'all' | string; data: any }) => void;
+  'plugin-score': (payload: { code: string; points: number; meta?: any }, callback?: (res: { success: boolean; error?: string; pointsAwarded?: number }) => void) => void;
+  'plugin-end': (payload: { code: string; hostToken: string; result?: any }) => void;
 }
+
+export * from './plugins';

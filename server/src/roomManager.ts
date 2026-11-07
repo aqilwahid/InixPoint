@@ -59,6 +59,10 @@ export class RoomManager {
     return this.rooms.get(code);
   }
 
+  getSocketBinding(socketId: string): { code: string; isHost: boolean; participantId?: string } | undefined {
+    return this.socketToRoom.get(socketId);
+  }
+
   joinRoom(code: string, socketId: string, name: string): { room?: Room; participant?: Participant; sessionToken?: string; error?: string } {
     const room = this.rooms.get(code);
     if (!room) return { error: 'Kode ruangan tidak ditemukan' };
@@ -360,7 +364,49 @@ export class RoomManager {
     participant.stars = Math.max(0, (participant.stars || 0) + count);
     return participant;
   }
+  // R5 PL-07 & FR-5: Submit score from plugin execution with manifest bounds checking
+  submitPluginScore(
+    code: string,
+    participantId: string,
+    claimedPoints: number,
+    meta?: any
+  ): { success: boolean; pointsAwarded: number; participant?: Participant; error?: string } {
+    const room = this.rooms.get(code);
+    if (!room) return { success: false, pointsAwarded: 0, error: 'Ruangan tidak ditemukan' };
+    const q = room.currentQuestion;
+    if (!q || q.status !== 'active' || q.type !== 'plugin_game') {
+      return { success: false, pointsAwarded: 0, error: 'Tidak ada game plugin yang sedang aktif' };
+    }
+    const participant = room.participants[participantId];
+    if (!participant) return { success: false, pointsAwarded: 0, error: 'Peserta tidak ditemukan' };
 
+    // Cap points based on plugin manifest maxPointsPerRound (FR-5, PL-07)
+    const maxPoints = q.pluginConfig?.manifest?.scoring?.maxPointsPerRound ?? 100;
+    const pointsAwarded = Math.max(0, Math.min(Math.round(Number(claimedPoints) || 0), maxPoints));
+
+    // Check if score counts towards room leaderboard (FR-18)
+    const countTowardsLeaderboard = q.pluginConfig?.countTowardsLeaderboard ?? true;
+    if (countTowardsLeaderboard) {
+      participant.score = (participant.score || 0) + pointsAwarded;
+    }
+
+    const answer: Answer = {
+      id: `ans_plugin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      questionId: q.id,
+      participantId,
+      participantName: participant.name,
+      content: JSON.stringify({ points: pointsAwarded, meta }),
+      submittedAt: Date.now(),
+      pointsAwarded,
+      isCorrect: pointsAwarded > 0,
+      starsEarned: Math.floor(pointsAwarded / 25),
+    };
+
+    if (!room.answers[q.id]) room.answers[q.id] = [];
+    room.answers[q.id].push(answer);
+
+    return { success: true, pointsAwarded, participant };
+  }
   // Closes every active question whose timer ran out; caller broadcasts the results.
   // ponytail: O(rooms) scan per tick; switch to per-question setTimeout if room count gets large.
   closeExpired(now = Date.now()): Array<{ code: string; questionId: string; answers: Answer[] }> {

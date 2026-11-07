@@ -1,4 +1,4 @@
-export type QuestionType = 'multiple_choice' | 'word_cloud' | 'short_answer' | 'slide_drawing' | 'matching' | 'ranking' | 'quick_poll' | 'live_qna' | 'image_upload';
+export type QuestionType = 'multiple_choice' | 'word_cloud' | 'short_answer' | 'slide_drawing' | 'matching' | 'ranking' | 'quick_poll' | 'live_qna' | 'image_upload' | 'plugin_game';
 export interface Participant {
     id: string;
     name: string;
@@ -40,11 +40,42 @@ export interface QuickPollOptions {
     template: QuickPollTemplate;
     options: QuickPollOptionItem[];
 }
+export interface PluginManifest {
+    id: string;
+    name: string;
+    version: string;
+    author: string;
+    description?: string;
+    views: ('presenter' | 'participant')[];
+    participants: {
+        min: number;
+        max: number;
+    };
+    scoring: {
+        mode: 'points';
+        maxPointsPerRound: number;
+    };
+    config?: Record<string, {
+        type: 'integer' | 'string';
+        default?: any;
+        min?: number;
+        max?: number;
+        enum?: string[];
+    }>;
+}
+export interface PluginRunConfig {
+    pluginId: string;
+    manifest: PluginManifest;
+    config: Record<string, any>;
+    countTowardsLeaderboard: boolean;
+    html?: string;
+}
 export interface Question {
     id: string;
     type: QuestionType;
     prompt: string;
     options?: MultipleChoiceOptions | MatchingOptions | RankingOptions | QuickPollOptions;
+    pluginConfig?: PluginRunConfig;
     timeLimitSec?: number;
     timeStartedAt?: number;
     status: 'pending' | 'active' | 'closed';
@@ -111,6 +142,33 @@ export interface Deck {
     slides: DeckSlide[];
     currentSlideIndex: number;
 }
+export interface User {
+    id: string;
+    email: string;
+    name: string;
+    role: 'presenter' | 'admin';
+    createdAt: number;
+}
+export interface AuthTokenPayload {
+    userId: string;
+    email: string;
+    role: 'presenter' | 'admin';
+}
+export interface RegisterRequest {
+    email: string;
+    password: string;
+    name: string;
+}
+export interface LoginRequest {
+    email: string;
+    password: string;
+}
+export interface AuthResponse {
+    success: boolean;
+    user?: User;
+    token?: string;
+    error?: string;
+}
 export interface ServerToClientEvents {
     'room-state': (room: Room) => void;
     'participant-joined': (participant: Participant) => void;
@@ -138,6 +196,19 @@ export interface ServerToClientEvents {
         imageUrl?: string;
     }) => void;
     'anonymous-mode': (enabled: boolean) => void;
+    'plugin-started': (payload: {
+        pluginId: string;
+        manifest: PluginManifest;
+        config: Record<string, any>;
+        html: string;
+    }) => void;
+    'plugin-message': (payload: {
+        fromRole: 'presenter' | 'participant';
+        senderId: string;
+        senderName?: string;
+        data: any;
+    }) => void;
+    'plugin-stopped': (summary?: any) => void;
 }
 export interface ClientToServerEvents {
     'create-room': (payload: {
@@ -216,7 +287,10 @@ export interface ClientToServerEvents {
             title: string;
             imageUrl?: string;
         };
-    }, callback?: (res: { success: boolean; error?: string }) => void) => void;
+    }, callback?: (res: {
+        success: boolean;
+        error?: string;
+    }) => void) => void;
     'award-star': (payload: {
         code: string;
         hostToken: string;
@@ -239,4 +313,24 @@ export interface ClientToServerEvents {
     'leave-room': (payload: {
         code: string;
     }) => void;
+    'plugin-message': (payload: {
+        code: string;
+        target?: 'presenter' | 'all' | string;
+        data: any;
+    }) => void;
+    'plugin-score': (payload: {
+        code: string;
+        points: number;
+        meta?: any;
+    }, callback?: (res: {
+        success: boolean;
+        error?: string;
+        pointsAwarded?: number;
+    }) => void) => void;
+    'plugin-end': (payload: {
+        code: string;
+        hostToken: string;
+        result?: any;
+    }) => void;
 }
+export * from './plugins.js';

@@ -5,14 +5,13 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
+    "baseUrl": "..",
     "paths": {
-      "@inixpoint/shared": ["../shared/src/index.d.ts"]
+      "@inixpoint/shared": ["shared/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

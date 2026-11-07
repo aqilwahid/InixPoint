@@ -77,8 +77,8 @@ export function initDatabase() {
 export function saveRoomReport(room: Room) {
   const insertSession = db.prepare(`
     INSERT OR REPLACE INTO quiz_sessions 
-    (code, title, status, total_participants, total_questions, created_at, closed_at, class_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (code, title, status, total_participants, total_questions, created_at, closed_at, class_id, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const participantCount = Object.keys(room.participants).length;
@@ -92,7 +92,8 @@ export function saveRoomReport(room: Room) {
     questionCount,
     room.createdAt,
     Date.now(),
-    room.classId || null
+    room.classId || null,
+    room.ownerId || null
   );
 
   const insertAnswer = db.prepare(`
@@ -125,4 +126,85 @@ export function getRoomSummary(roomCode: string) {
   const session = db.prepare('SELECT * FROM quiz_sessions WHERE code = ?').get(roomCode);
   const answers = db.prepare('SELECT * FROM quiz_answers WHERE room_code = ?').all(roomCode);
   return { session, answers };
+}
+
+// R4-R04: Session history and reporting
+export interface SessionReport {
+  code: string;
+  title: string;
+  status: string;
+  createdAt: number;
+  closedAt: number;
+  participants: {
+    total: number;
+    data: { name: string; score: number; correct: number; total: number; avgResponseSec: number }[];
+  };
+  questions: {
+    total: number;
+    avgCorrectPercent: number;
+  };
+  metrics: {
+    avgScore: number;
+    avgResponseSec: number;
+    totalPoints: number;
+  };
+}
+
+export function getSessionReport(roomCode: string): SessionReport | null {
+  const session = db.prepare('SELECT * FROM quiz_sessions WHERE code = ?').get(roomCode) as any;
+  if (!session) return null;
+
+  const answers = db.prepare('SELECT * FROM quiz_answers WHERE room_code = ? ORDER BY submitted_at').all(roomCode) as any[];
+
+  const participantStats = new Map<string, { name: string; score: number; correct: number; total: number; responseTime: number[] }>();
+  for (const ans of answers) {
+    if (!participantStats.has(ans.participant_id)) {
+      participantStats.set(ans.participant_id, { name: ans.participant_name, score: 0, correct: 0, total: 0, responseTime: [] });
+    }
+    const stat = participantStats.get(ans.participant_id)!;
+    stat.score += ans.points_awarded || 0;
+    if (ans.is_correct) stat.correct++;
+    stat.total++;
+    if (ans.response_duration_sec) stat.responseTime.push(ans.response_duration_sec);
+  }
+
+  const participants = Array.from(participantStats.values()).map(s => ({
+    name: s.name,
+    score: s.score,
+    correct: s.correct,
+    total: s.total,
+    avgResponseSec: s.responseTime.length ? s.responseTime.reduce((a, b) => a + b) / s.responseTime.length : 0,
+  }));
+
+  const questionStats = new Map<string, { correct: number; total: number }>();
+  for (const ans of answers) {
+    if (!questionStats.has(ans.question_id)) questionStats.set(ans.question_id, { correct: 0, total: 0 });
+    const stat = questionStats.get(ans.question_id)!;
+    if (ans.is_correct) stat.correct++;
+    stat.total++;
+  }
+
+  const avgCorrectPercent = questionStats.size > 0
+    ? Array.from(questionStats.values()).reduce((sum, q) => sum + (q.correct / q.total), 0) / questionStats.size * 100
+    : 0;
+
+  const totalScore = participants.reduce((s, p) => s + p.score, 0);
+  const avgScore = participants.length > 0 ? totalScore / participants.length : 0;
+  const avgResponseSec = participants.reduce((s, p) => s + p.avgResponseSec, 0) / (participants.length || 1);
+
+  return {
+    code: session.code,
+    title: session.title,
+    status: session.status,
+    createdAt: session.created_at,
+    closedAt: session.closed_at,
+    participants: { total: participants.length, data: participants.sort((a, b) => b.score - a.score) },
+    questions: { total: questionStats.size, avgCorrectPercent: Math.round(avgCorrectPercent) },
+    metrics: { avgScore: Math.round(avgScore), avgResponseSec: Math.round(avgResponseSec * 10) / 10, totalPoints: totalScore },
+  };
+}
+
+export function getSessionsByOwner(ownerId: string) {
+  const stmt = db.prepare('SELECT code, title, status, total_participants, total_questions, created_at, closed_at FROM quiz_sessions WHERE owner_id = ? ORDER BY created_at DESC');
+  return stmt.all(ownerId);
 }

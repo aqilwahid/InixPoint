@@ -34,13 +34,14 @@ export class RoomManager {
     return code;
   }
 
-  createRoom(title: string, hostSocketId: string, classId?: string): Room {
+  createRoom(title: string, hostSocketId: string, classId?: string, ownerId?: string): Room {
     const code = this.generateCode();
     const room: Room = {
       code,
       title: title || 'InixPoint Interactive Session',
       hostSocketId,
       classId,
+      ownerId,
       status: 'waiting',
       participants: {},
       questions: [],

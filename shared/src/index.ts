@@ -114,6 +114,7 @@ export interface Room {
   hostSocketId: string;
   status: 'waiting' | 'active' | 'finished';
   classId?: string; // R4-G05: link to saved class for cumulative leaderboard
+  ownerId?: string; // R4-R04: presenter who created session
   participants: Record<string, Participant>;
   currentQuestion?: Question;
   questions: Question[];

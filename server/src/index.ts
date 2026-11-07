@@ -6,7 +6,7 @@ import type {
   ClientToServerEvents, 
   ServerToClientEvents 
 } from '@inixpoint/shared';
-import { initDatabase, getRoomSummary } from './db.js';
+import { initDatabase, getRoomSummary, getSessionReport, getSessionsByOwner } from './db.js';
 import { RoomManager } from './roomManager.js';
 import { registerUser, loginUser, verifyToken, extractToken } from './auth.js';
 import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass, getClassLeaderboard } from './classes.js';
@@ -122,6 +122,19 @@ app.get('/api/classes/:id/leaderboard', authMiddleware, (req, res) => {
   res.json({ success: true, leaderboard });
 });
 
+// R4-R04: Session history & reporting
+app.get('/api/sessions', authMiddleware, (req, res) => {
+  const sessions = getSessionsByOwner((req as any).user.userId);
+  res.json({ success: true, sessions });
+});
+
+app.get('/api/sessions/:code/report', authMiddleware, (req, res) => {
+  const code = typeof req.params.code === 'string' ? req.params.code : '';
+  const report = getSessionReport(code);
+  if (!report) return res.status(404).json({ success: false, error: 'Sesi tidak ditemukan' });
+  res.json({ success: true, report });
+});
+
 app.get('/api/reports/:code', (req, res) => {
   const summary = getRoomSummary(req.params.code);
   if (!summary.session) {
@@ -197,14 +210,16 @@ io.on('connection', (socket) => {
   socket.on('create-room', (payload, callback) => {
     try {
       const classId = typeof payload.classId === 'string' ? payload.classId : undefined;
-      if (classId) {
+      const auth = verifyToken(typeof payload.authToken === 'string' ? payload.authToken : '');
+      const ownerId = auth.valid && auth.payload ? auth.payload.userId : undefined;
+      
+      if (classId && ownerId) {
         // only the class owner may attach sessions to it (prevents leaderboard poisoning)
-        const auth = verifyToken(typeof payload.authToken === 'string' ? payload.authToken : '');
-        if (!auth.valid || !auth.payload || !getClassById(classId, auth.payload.userId)) {
+        if (!getClassById(classId, ownerId)) {
           return callback({ success: false, error: 'Kelas tidak ditemukan atau tidak diizinkan' });
         }
       }
-      const room = roomManager.createRoom(payload.title, socket.id, classId);
+      const room = roomManager.createRoom(payload.title, socket.id, classId, ownerId);
       socket.join(room.code);
       console.log(`[Room] Created room ${room.code} by host ${socket.id}` + (classId ? ` (class: ${classId})` : ''));
       callback({ success: true, room, hostToken: roomManager.getHostToken(room.code) });

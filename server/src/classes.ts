@@ -68,11 +68,9 @@ export interface LeaderboardEntry {
 }
 
 export function getClassLeaderboard(classId: string, ownerId: string): LeaderboardEntry[] {
-  // verify owner owns this class
   const classObj = getClassById(classId, ownerId);
   if (!classObj) return [];
 
-  // ponytail: participant_id is a per-session socket id, so identity across sessions = normalized name; upgrade to participant accounts when F-11 roster lands
   const stmt = db.prepare(`
     SELECT 
       LOWER(TRIM(qa.participant_name)) as participant_id,

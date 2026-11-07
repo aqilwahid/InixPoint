@@ -23,6 +23,7 @@ export function initDatabase() {
       name TEXT NOT NULL,
       description TEXT,
       owner_id TEXT NOT NULL,
+      is_locked INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (owner_id) REFERENCES users(id)
@@ -70,6 +71,11 @@ export function initDatabase() {
 
       // R4-F07 Migration: add class_id to quiz_sessions
       try { db.exec(`ALTER TABLE quiz_sessions ADD COLUMN class_id TEXT REFERENCES classes(id)`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
+      }
+
+      // R4-F08/09 Migration: add is_locked to classes
+      try { db.exec(`ALTER TABLE classes ADD COLUMN is_locked INTEGER DEFAULT 0`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
       }
 }

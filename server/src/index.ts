@@ -17,6 +17,8 @@ import {
   getAllLevels,
   createGroup,
   getGroupLeaderboard,
+  getBranding,
+  updateBranding,
   saveCustomPlugin,
   getCustomPlugins,
   revokeCustomPlugin,
@@ -226,6 +228,26 @@ app.get('/api/classes/:id/groups/leaderboard', authMiddleware, (req, res) => {
 // R-05: Export analytics type
 app.get('/api/analytics/levels', (req, res) => {
   res.json({ success: true, data: getAllLevels() });
+});
+
+// D-08: Export session as PDF (using existing report + excel format)
+app.get('/api/sessions/:code/export', authMiddleware, (req, res) => {
+  const code = typeof req.params.code === 'string' ? req.params.code : '';
+  const report = getSessionReport(code);
+  if (!report) return res.status(404).json({ success: false, error: 'Sesi tidak ditemukan' });
+  res.json({ success: true, report, exportUrl: `/reports/${code}` });
+});
+
+// U-03: Branding settings
+app.get('/api/branding', (req, res) => {
+  const branding = getBranding();
+  res.json({ success: true, branding });
+});
+
+app.put('/api/branding', authMiddleware, (req, res) => {
+  const { logoUrl, primaryColor, secondaryColor } = req.body;
+  updateBranding((req as any).user.userId, logoUrl, primaryColor, secondaryColor);
+  res.json({ success: true });
 });
 
 // R5 PL-01, PL-08, PL-09, PL-10, PL-16: Plugin Management Endpoints

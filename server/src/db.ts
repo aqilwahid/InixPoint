@@ -142,6 +142,30 @@ export function initDatabase() {
       )`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
       }
+      
+      // R4-D08: add branding table
+      try { db.exec(`CREATE TABLE IF NOT EXISTS branding (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        logo_url TEXT,
+        primary_color TEXT,
+        secondary_color TEXT,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (owner_id) REFERENCES users(id)
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
+      }
+      
+      // R4-U05: add retention_policy table
+      try { db.exec(`CREATE TABLE IF NOT EXISTS retention_policy (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        retention_days INTEGER DEFAULT 30,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (owner_id) REFERENCES users(id)
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
+      }
 }
 
 export function saveRoomReport(room: Room) {
@@ -320,6 +344,27 @@ export function getGroupLeaderboard(classId: string, ownerId: string) {
     const row = stmt.get(classId, ...members) as any;
     return { groupName: g.name, totalScore: row?.total || 0, totalStars: row?.stars || 0, memberCount: members.length };
   });
+}
+
+// R4-U03: Branding
+export function getBranding() {
+  const stmt = db.prepare(`SELECT logo_url, primary_color, secondary_color FROM branding LIMIT 1`);
+  const row = stmt.get() as any;
+  return row ? { logoUrl: row.logo_url, primaryColor: row.primary_color, secondaryColor: row.secondary_color } : {};
+}
+
+export function updateBranding(ownerId: string, logoUrl?: string, primaryColor?: string, secondaryColor?: string): void {
+  const existing = db.prepare(`SELECT id FROM branding WHERE owner_id = ?`).get(ownerId);
+  if (existing) {
+    db.prepare(`UPDATE branding SET logo_url = ?, primary_color = ?, secondary_color = ?, updated_at = ? WHERE owner_id = ?`).run(
+      logoUrl || null, primaryColor || null, secondaryColor || null, Date.now(), ownerId
+    );
+  } else {
+    const id = `brand_${Date.now()}`;
+    db.prepare(`INSERT INTO branding (id, owner_id, logo_url, primary_color, secondary_color, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      id, ownerId, logoUrl || null, primaryColor || null, secondaryColor || null, Date.now()
+    );
+  }
 }
 
 // R4-R05: Per-question analytics

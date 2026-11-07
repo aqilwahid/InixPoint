@@ -9,6 +9,7 @@ import type {
 import { initDatabase, getRoomSummary } from './db.js';
 import { RoomManager } from './roomManager.js';
 import { registerUser, loginUser, verifyToken, extractToken } from './auth.js';
+import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass } from './classes.js';
 import ExcelJS from 'exceljs';
 
 const app = express();
@@ -76,6 +77,43 @@ function authMiddleware(req: express.Request, res: express.Response, next: expre
 
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({ success: true, user: (req as any).user });
+});
+
+// R4-F07: Classes API (Kelas Tersimpan)
+app.post('/api/classes', authMiddleware, (req, res) => {
+  const name = typeof req.body.name === 'string' ? req.body.name : '';
+  const description = typeof req.body.description === 'string' ? req.body.description : undefined;
+  if (!name) return res.status(400).json({ success: false, error: 'Nama kelas wajib diisi' });
+  const classObj = createClass((req as any).user.userId, name, description);
+  res.json({ success: true, class: classObj });
+});
+
+app.get('/api/classes', authMiddleware, (req, res) => {
+  const classes = getClassesByOwner((req as any).user.userId);
+  res.json({ success: true, classes });
+});
+
+app.get('/api/classes/:id', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const classObj = getClassById(id, (req as any).user.userId);
+  if (!classObj) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true, class: classObj });
+});
+
+app.put('/api/classes/:id', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const name = typeof req.body.name === 'string' ? req.body.name : undefined;
+  const description = typeof req.body.description === 'string' ? req.body.description : undefined;
+  const updated = updateClass(id, (req as any).user.userId, { name, description });
+  if (!updated) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true, class: updated });
+});
+
+app.delete('/api/classes/:id', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const deleted = deleteClass(id, (req as any).user.userId);
+  if (!deleted) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true });
 });
 
 app.get('/api/reports/:code', (req, res) => {

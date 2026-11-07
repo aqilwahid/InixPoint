@@ -194,6 +194,26 @@ export interface AuthResponse {
   error?: string;
 }
 
+// R4-F07 Class (Kelas Tersimpan)
+export interface Class {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateClassRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateClassRequest {
+  name?: string;
+  description?: string;
+}
+
 // Socket.io payload contracts
 export interface ServerToClientEvents {
   'room-state': (room: Room) => void;

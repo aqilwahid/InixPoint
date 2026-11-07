@@ -18,6 +18,16 @@ export function initDatabase() {
       created_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS classes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      owner_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (owner_id) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS quiz_sessions (
       code TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -27,7 +37,9 @@ export function initDatabase() {
       created_at INTEGER NOT NULL,
       closed_at INTEGER,
       owner_id TEXT,
-      FOREIGN KEY (owner_id) REFERENCES users(id)
+      class_id TEXT,
+      FOREIGN KEY (owner_id) REFERENCES users(id),
+      FOREIGN KEY (class_id) REFERENCES classes(id)
     );
 
     CREATE TABLE IF NOT EXISTS quiz_answers (
@@ -53,6 +65,11 @@ export function initDatabase() {
 
       // R4 Migration: add owner_id to quiz_sessions
       try { db.exec(`ALTER TABLE quiz_sessions ADD COLUMN owner_id TEXT REFERENCES users(id)`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
+      }
+
+      // R4-F07 Migration: add class_id to quiz_sessions
+      try { db.exec(`ALTER TABLE quiz_sessions ADD COLUMN class_id TEXT REFERENCES classes(id)`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
       }
 }

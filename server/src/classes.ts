@@ -56,3 +56,47 @@ export function deleteClass(id: string, ownerId: string): boolean {
   const result = stmt.run(id, ownerId);
   return result.changes > 0;
 }
+
+export interface LeaderboardEntry {
+  participantId: string;
+  participantName: string;
+  totalScore: number;
+  totalStars: number;
+  correctCount: number;
+  totalAnswers: number;
+  averageResponseSec: number;
+}
+
+export function getClassLeaderboard(classId: string, ownerId: string): LeaderboardEntry[] {
+  // verify owner owns this class
+  const classObj = getClassById(classId, ownerId);
+  if (!classObj) return [];
+
+  // ponytail: participant_id is a per-session socket id, so identity across sessions = normalized name; upgrade to participant accounts when F-11 roster lands
+  const stmt = db.prepare(`
+    SELECT 
+      LOWER(TRIM(qa.participant_name)) as participant_id,
+      MAX(qa.participant_name) as participant_name,
+      COALESCE(SUM(qa.points_awarded), 0) as total_score,
+      COALESCE(SUM(qa.stars_earned), 0) as total_stars,
+      SUM(CASE WHEN qa.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
+      COUNT(*) as total_answers,
+      COALESCE(AVG(qa.response_duration_sec), 0) as avg_response_sec
+    FROM quiz_answers qa
+    JOIN quiz_sessions qs ON qa.room_code = qs.code
+    WHERE qs.class_id = ?
+    GROUP BY LOWER(TRIM(qa.participant_name))
+    ORDER BY total_score DESC, total_stars DESC
+  `);
+
+  const rows = stmt.all(classId) as any[];
+  return rows.map(r => ({
+    participantId: r.participant_id,
+    participantName: r.participant_name,
+    totalScore: r.total_score,
+    totalStars: r.total_stars,
+    correctCount: r.correct_count,
+    totalAnswers: r.total_answers,
+    averageResponseSec: r.avg_response_sec,
+  }));
+}

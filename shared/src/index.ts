@@ -113,6 +113,7 @@ export interface Room {
   title: string;
   hostSocketId: string;
   status: 'waiting' | 'active' | 'finished';
+  classId?: string; // R4-G05: link to saved class for cumulative leaderboard
   participants: Record<string, Participant>;
   currentQuestion?: Question;
   questions: Question[];
@@ -214,6 +215,17 @@ export interface UpdateClassRequest {
   description?: string;
 }
 
+// R4-G05 Leaderboard kumulatif lintas sesi
+export interface LeaderboardEntry {
+  participantId: string;
+  participantName: string;
+  totalScore: number;
+  totalStars: number;
+  correctCount: number;
+  totalAnswers: number;
+  averageResponseSec: number;
+}
+
 // Socket.io payload contracts
 export interface ServerToClientEvents {
   'room-state': (room: Room) => void;
@@ -238,7 +250,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  'create-room': (payload: { title: string }, callback: (res: { success: boolean; room?: Room; hostToken?: string; error?: string }) => void) => void;
+    'create-room': (payload: { title: string; classId?: string; authToken?: string }, callback: (res: { success: boolean; room?: Room; hostToken?: string; error?: string }) => void) => void;
   'join-room': (payload: { code: string; name: string }, callback: (res: { success: boolean; room?: Room; sessionToken?: string; error?: string }) => void) => void;
   'rejoin-room': (payload: { code: string; sessionToken: string }, callback: (res: { success: boolean; room?: Room; error?: string }) => void) => void;
   'start-question': (payload: { code: string; hostToken: string; question: Omit<Question, 'id' | 'status' | 'createdAt'> }) => void;

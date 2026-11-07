@@ -77,8 +77,8 @@ export function initDatabase() {
 export function saveRoomReport(room: Room) {
   const insertSession = db.prepare(`
     INSERT OR REPLACE INTO quiz_sessions 
-    (code, title, status, total_participants, total_questions, created_at, closed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    (code, title, status, total_participants, total_questions, created_at, closed_at, class_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const participantCount = Object.keys(room.participants).length;
@@ -91,7 +91,8 @@ export function saveRoomReport(room: Room) {
     participantCount,
     questionCount,
     room.createdAt,
-    Date.now()
+    Date.now(),
+    room.classId || null
   );
 
   const insertAnswer = db.prepare(`

@@ -9,7 +9,7 @@ import type {
 import { initDatabase, getRoomSummary } from './db.js';
 import { RoomManager } from './roomManager.js';
 import { registerUser, loginUser, verifyToken, extractToken } from './auth.js';
-import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass } from './classes.js';
+import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass, getClassLeaderboard } from './classes.js';
 import ExcelJS from 'exceljs';
 
 const app = express();
@@ -116,6 +116,12 @@ app.delete('/api/classes/:id', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/api/classes/:id/leaderboard', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const leaderboard = getClassLeaderboard(id, (req as any).user.userId);
+  res.json({ success: true, leaderboard });
+});
+
 app.get('/api/reports/:code', (req, res) => {
   const summary = getRoomSummary(req.params.code);
   if (!summary.session) {
@@ -190,9 +196,17 @@ io.on('connection', (socket) => {
 
   socket.on('create-room', (payload, callback) => {
     try {
-      const room = roomManager.createRoom(payload.title, socket.id);
+      const classId = typeof payload.classId === 'string' ? payload.classId : undefined;
+      if (classId) {
+        // only the class owner may attach sessions to it (prevents leaderboard poisoning)
+        const auth = verifyToken(typeof payload.authToken === 'string' ? payload.authToken : '');
+        if (!auth.valid || !auth.payload || !getClassById(classId, auth.payload.userId)) {
+          return callback({ success: false, error: 'Kelas tidak ditemukan atau tidak diizinkan' });
+        }
+      }
+      const room = roomManager.createRoom(payload.title, socket.id, classId);
       socket.join(room.code);
-      console.log(`[Room] Created room ${room.code} by host ${socket.id}`);
+      console.log(`[Room] Created room ${room.code} by host ${socket.id}` + (classId ? ` (class: ${classId})` : ''));
       callback({ success: true, room, hostToken: roomManager.getHostToken(room.code) });
     } catch (err: any) {
       callback({ success: false, error: err.message });

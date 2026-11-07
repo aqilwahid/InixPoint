@@ -109,6 +109,27 @@ export function initDatabase() {
       )`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
       }
+      
+      // R4-G06/07 Migration: add level config table
+      try { db.exec(`CREATE TABLE IF NOT EXISTS level_config (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        min_stars INTEGER NOT NULL,
+        badge_emoji TEXT NOT NULL
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
+      }
+      
+      // Initialize default 10 levels
+      const defaultLevels = [
+        [1, 'Beginner', 0, '🌱'], [2, 'Learner', 10, '📚'], [3, 'Explorer', 25, '🔍'],
+        [4, 'Achiever', 50, '🎯'], [5, 'Expert', 100, '⭐'], [6, 'Master', 200, '🏆'],
+        [7, 'Champion', 350, '👑'], [8, 'Legend', 550, '🔥'], [9, 'Hero', 800, '💎'],
+        [10, 'Ultimate', 1100, '🚀']
+      ];
+      for (const [id, name, min, badge] of defaultLevels) {
+        try { db.prepare(`INSERT OR IGNORE INTO level_config (id, name, min_stars, badge_emoji) VALUES (?, ?, ?, ?)`).run(id, name, min, badge); } catch {}
+      }
 }
 
 export function saveRoomReport(room: Room) {
@@ -244,6 +265,20 @@ export function getSessionReport(roomCode: string): SessionReport | null {
 export function getSessionsByOwner(ownerId: string) {
   const stmt = db.prepare('SELECT code, title, status, total_participants, total_questions, created_at, closed_at FROM quiz_sessions WHERE owner_id = ? ORDER BY created_at DESC');
   return stmt.all(ownerId);
+}
+
+// R4-G06/07: Level system
+export function getLevelByStars(stars: number): { id: number; name: string; minStars: number; badgeEmoji: string } | null {
+  const stmt = db.prepare(`SELECT * FROM level_config WHERE min_stars <= ? ORDER BY min_stars DESC LIMIT 1`);
+  const row = stmt.get(stars) as any;
+  if (!row) return null;
+  return { id: row.id, name: row.name, minStars: row.min_stars, badgeEmoji: row.badge_emoji };
+}
+
+export function getAllLevels() {
+  const stmt = db.prepare(`SELECT * FROM level_config ORDER BY id`);
+  const rows = stmt.all() as any[];
+  return rows.map(r => ({ id: r.id, name: r.name, minStars: r.min_stars, badgeEmoji: r.badge_emoji }));
 }
 
 // R4-R05: Per-question analytics

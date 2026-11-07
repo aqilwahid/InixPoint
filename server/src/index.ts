@@ -13,6 +13,8 @@ import {
   getSessionReport, 
   getSessionsByOwner,
   getQuestionAnalytics,
+  getLevelByStars,
+  getAllLevels,
   saveCustomPlugin,
   getCustomPlugins,
   revokeCustomPlugin,
@@ -200,6 +202,18 @@ app.get('/api/sessions/:code/questions/:questionId/analytics', authMiddleware, (
   const analytics = getQuestionAnalytics(code, questionId);
   if (!analytics) return res.status(404).json({ success: false, error: 'Data tidak ditemukan' });
   res.json({ success: true, analytics });
+});
+
+// G-06/07: Levels & badges
+app.get('/api/levels', (req, res) => {
+  const levels = getAllLevels();
+  res.json({ success: true, levels });
+});
+
+app.get('/api/levels/:stars', (req, res) => {
+  const stars = parseInt(req.params.stars, 10) || 0;
+  const level = getLevelByStars(stars);
+  res.json({ success: true, level });
 });
 
 // R5 PL-01, PL-08, PL-09, PL-10, PL-16: Plugin Management Endpoints

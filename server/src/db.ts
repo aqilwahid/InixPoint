@@ -295,25 +295,27 @@ export function getAllLevels() {
 
 // R4-G08/09: Groups
 export function createGroup(classId: string, ownerId: string, groupName: string, members: string[]): boolean {
-  const cls = getClassById(classId, ownerId);
-  if (!cls) return false;
   const id = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  db.prepare(`INSERT INTO class_groups (id, class_id, name, members_json, created_at) VALUES (?, ?, ?, ?, ?)`).run(
-    id, classId, groupName, JSON.stringify(members), Date.now()
-  );
-  return true;
+  try {
+    db.prepare(`INSERT INTO class_groups (id, class_id, name, members_json, created_at) VALUES (?, ?, ?, ?, ?)`).run(
+      id, classId, groupName, JSON.stringify(members), Date.now()
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getGroupLeaderboard(classId: string, ownerId: string) {
-  const cls = getClassById(classId, ownerId);
-  if (!cls) return [];
   const groups = db.prepare(`SELECT * FROM class_groups WHERE class_id = ?`).all(classId) as any[];
   return groups.map((g: any) => {
-    const members = JSON.parse(g.members_json || '[]');
+    const members = JSON.parse(g.members_json || '[]') as string[];
+    if (members.length === 0) return { groupName: g.name, totalScore: 0, totalStars: 0, memberCount: 0 };
+    const placeholders = members.map(() => '?').join(',');
     const stmt = db.prepare(`
-      SELECT SUM(qa.points_awarded) as total, SUM(qa.stars_earned) as stars
+      SELECT COALESCE(SUM(qa.points_awarded), 0) as total, COALESCE(SUM(qa.stars_earned), 0) as stars
       FROM quiz_answers qa JOIN quiz_sessions qs ON qa.room_code = qs.code
-      WHERE qs.class_id = ? AND qa.participant_name IN (${members.map(() => '?').join(',')})
+      WHERE qs.class_id = ? AND qa.participant_name IN (${placeholders})
     `);
     const row = stmt.get(classId, ...members) as any;
     return { groupName: g.name, totalScore: row?.total || 0, totalStars: row?.stars || 0, memberCount: members.length };

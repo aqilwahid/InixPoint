@@ -130,6 +130,18 @@ export function initDatabase() {
       for (const [id, name, min, badge] of defaultLevels) {
         try { db.prepare(`INSERT OR IGNORE INTO level_config (id, name, min_stars, badge_emoji) VALUES (?, ?, ?, ?)`).run(id, name, min, badge); } catch {}
       }
+      
+      // R4-G08/09 Migration: add class_groups table
+      try { db.exec(`CREATE TABLE IF NOT EXISTS class_groups (
+        id TEXT PRIMARY KEY,
+        class_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        members_json TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
+      }
 }
 
 export function saveRoomReport(room: Room) {
@@ -279,6 +291,33 @@ export function getAllLevels() {
   const stmt = db.prepare(`SELECT * FROM level_config ORDER BY id`);
   const rows = stmt.all() as any[];
   return rows.map(r => ({ id: r.id, name: r.name, minStars: r.min_stars, badgeEmoji: r.badge_emoji }));
+}
+
+// R4-G08/09: Groups
+export function createGroup(classId: string, ownerId: string, groupName: string, members: string[]): boolean {
+  const cls = getClassById(classId, ownerId);
+  if (!cls) return false;
+  const id = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  db.prepare(`INSERT INTO class_groups (id, class_id, name, members_json, created_at) VALUES (?, ?, ?, ?, ?)`).run(
+    id, classId, groupName, JSON.stringify(members), Date.now()
+  );
+  return true;
+}
+
+export function getGroupLeaderboard(classId: string, ownerId: string) {
+  const cls = getClassById(classId, ownerId);
+  if (!cls) return [];
+  const groups = db.prepare(`SELECT * FROM class_groups WHERE class_id = ?`).all(classId) as any[];
+  return groups.map((g: any) => {
+    const members = JSON.parse(g.members_json || '[]');
+    const stmt = db.prepare(`
+      SELECT SUM(qa.points_awarded) as total, SUM(qa.stars_earned) as stars
+      FROM quiz_answers qa JOIN quiz_sessions qs ON qa.room_code = qs.code
+      WHERE qs.class_id = ? AND qa.participant_name IN (${members.map(() => '?').join(',')})
+    `);
+    const row = stmt.get(classId, ...members) as any;
+    return { groupName: g.name, totalScore: row?.total || 0, totalStars: row?.stars || 0, memberCount: members.length };
+  });
 }
 
 // R4-R05: Per-question analytics

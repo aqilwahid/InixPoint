@@ -15,6 +15,8 @@ import {
   getQuestionAnalytics,
   getLevelByStars,
   getAllLevels,
+  createGroup,
+  getGroupLeaderboard,
   saveCustomPlugin,
   getCustomPlugins,
   revokeCustomPlugin,
@@ -204,16 +206,26 @@ app.get('/api/sessions/:code/questions/:questionId/analytics', authMiddleware, (
   res.json({ success: true, analytics });
 });
 
-// G-06/07: Levels & badges
-app.get('/api/levels', (req, res) => {
-  const levels = getAllLevels();
-  res.json({ success: true, levels });
+// G-08/09: Grouping & group leaderboard
+app.post('/api/classes/:id/groups', authMiddleware, (req, res) => {
+  const classId = typeof req.params.id === 'string' ? req.params.id : '';
+  const { groupName, members } = req.body;
+  if (!groupName) return res.status(400).json({ success: false, error: 'Nama grup wajib diisi' });
+  const members_arr = Array.isArray(members) ? members : [];
+  const success = createGroup(classId, (req as any).user.userId, groupName, members_arr);
+  if (!success) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true, groupName });
 });
 
-app.get('/api/levels/:stars', (req, res) => {
-  const stars = parseInt(req.params.stars, 10) || 0;
-  const level = getLevelByStars(stars);
-  res.json({ success: true, level });
+app.get('/api/classes/:id/groups/leaderboard', authMiddleware, (req, res) => {
+  const classId = typeof req.params.id === 'string' ? req.params.id : '';
+  const lb = getGroupLeaderboard(classId, (req as any).user.userId);
+  res.json({ success: true, leaderboard: lb });
+});
+
+// R-05: Export analytics type
+app.get('/api/analytics/levels', (req, res) => {
+  res.json({ success: true, data: getAllLevels() });
 });
 
 // R5 PL-01, PL-08, PL-09, PL-10, PL-16: Plugin Management Endpoints

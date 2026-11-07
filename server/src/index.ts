@@ -499,8 +499,7 @@ io.on('connection', (socket) => {
   socket.on('broadcast-slide', (payload, callback) => {
   if (!roomManager.verifyHost(payload.code, payload.hostToken)) return callback?.({ success: false, error: 'Token host tidak valid' });
   const slide = payload.slide;
-  if (!slide || !Number.isInteger(slide.index) || slide.index < 0 || slide.index > 1000 || typeof slide.title !== 'string' || slide.title.length > 300) return callback?.({ success: false, error: 'Data slide tidak valid' });
-  io.to(payload.code).emit('slide-changed', slide);
+  if (!slide || !Number.isInteger(slide.index) || slide.index < 0 || slide.index > 1000 || typeof slide.title !== 'string' || slide.title.length > 300) return callback?.({ success: false, error: 'Data slide tidak valid' });    roomManager.setCurrentSlide(payload.code, slide);  io.to(payload.code).emit('slide-changed', slide);
   callback?.({ success: true });
   });
   socket.on('submit-qna', (payload, callback) => {

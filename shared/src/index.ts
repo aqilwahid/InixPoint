@@ -109,6 +109,12 @@ export interface Answer {
   starsEarned?: number;
 }
 
+export interface BroadcastSlide {
+  index: number;
+  title: string;
+  imageUrl?: string;
+}
+
 export interface Room {
   code: string;
   title: string;
@@ -122,6 +128,7 @@ export interface Room {
   answers: Record<string, Answer[]>; // questionId -> list of Answers
   qna: QnaItem[]; // live Q&A entries
   qnaEnabled: boolean;
+  currentSlide?: BroadcastSlide;
   createdAt: number;
 }
 

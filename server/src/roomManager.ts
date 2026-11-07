@@ -1,4 +1,4 @@
-import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions, RankingOptions, QnaItem } from '@inixpoint/shared';
+import type { Room, Participant, Question, Answer, MultipleChoiceOptions, MatchingOptions, RankingOptions, QnaItem, BroadcastSlide } from '@inixpoint/shared';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { saveRoomReport } from './db.js';
 
@@ -59,6 +59,13 @@ export class RoomManager {
 
   getRoom(code: string): Room | undefined {
     return this.rooms.get(code);
+  }
+
+  setCurrentSlide(code: string, slide: BroadcastSlide): Room | undefined {
+    const room = this.rooms.get(code);
+    if (!room) return undefined;
+    room.currentSlide = slide;
+    return room;
   }
 
   getSocketBinding(socketId: string): { code: string; isHost: boolean; participantId?: string } | undefined {

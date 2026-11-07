@@ -20,7 +20,9 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [imageError, setImageError] = useState('');
-  const [broadcastSlide, setBroadcastSlide] = useState<{ index: number; title: string; imageUrl?: string } | null>(null);
+  const [broadcastSlide, setBroadcastSlide] = useState<{ index: number; title: string; imageUrl?: string } | null>(
+    initialRoom.currentSlide || null
+  );
   const [stars, setStars] = useState<number>(() => {
     const me = Object.values(initialRoom.participants || {}).find(p => p.name === participantName || p.id === socket.id);
     return me?.stars || 0;
@@ -121,7 +123,12 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
         return [...prev, item];
       });
     });
-    socket.on('room-state', (nextRoom: Room) => setRoomState(nextRoom));
+    socket.on('room-state', (nextRoom: Room) => {
+      setRoomState(nextRoom);
+      if (nextRoom.currentSlide) {
+        setBroadcastSlide(nextRoom.currentSlide);
+      }
+    });
     return () => {
       socket.off('qna-state');
       socket.off('qna-updated');
@@ -197,7 +204,28 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       {/* Main Content */}
       <main className="flex-1 px-4 py-6 flex flex-col items-center justify-center">
         {!currentQuestion || currentQuestion.status !== 'active' ? (
-          <div className="w-full max-w-md text-center">
+          <div className="w-full max-w-2xl flex flex-col items-center">
+            {broadcastSlide && (
+              <div className="w-full mb-6 rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-neutral-500">
+                    Slide {broadcastSlide.index + 1}: {broadcastSlide.title}
+                  </p>
+                  <span className="text-[11px] font-semibold text-primary-700 bg-primary-50 px-2.5 py-0.5 rounded-full">
+                    Materi Aktif
+                  </span>
+                </div>
+                {broadcastSlide.imageUrl && (
+                  <img
+                    src={broadcastSlide.imageUrl}
+                    alt={broadcastSlide.title}
+                    className="mx-auto max-h-[50vh] w-full rounded-lg object-contain border border-neutral-100"
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="w-full max-w-md text-center">
             <div className="w-20 h-20 bg-primary-100 text-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
               <Clock className="w-10 h-10" />
             </div>
@@ -210,6 +238,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                 {statusMessage}
               </div>
             )}
+          </div>
           </div>
         ) : (
           <div className="w-full max-w-2xl">

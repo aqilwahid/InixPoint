@@ -28,6 +28,7 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
   onDeckChange,
   onLaunchActivity,
   isQuestionActive,
+  onSlideChange,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null);
@@ -117,6 +118,9 @@ export const DeckPresenter: React.FC<DeckPresenterProps> = ({
       };
 
       onDeckChange(newDeck);
+      if (onSlideChange && slides[0]) {
+        onSlideChange(slides[0]);
+      }
     } catch (err: any) {
       console.error(err);
       alert('Gagal memproses berkas PDF: ' + (err.message || 'Format tidak valid atau terenkripsi'));

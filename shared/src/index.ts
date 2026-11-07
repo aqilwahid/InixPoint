@@ -93,6 +93,7 @@ export interface Question {
   difficulty?: 'easy' | 'medium' | 'hard'; // P-06 difficulty for auto stars
   // For fill-in-the-blanks questions, list of acceptable answers (case-insensitive)
   correctAnswers?: string[];
+  slideImageUrl?: string; // active deck page used as the drawing background
 }
 
 export interface Answer {
@@ -204,6 +205,12 @@ export interface Class {
   ownerId: string;
   createdAt: number;
   updatedAt: number;
+  isLocked?: boolean;
+}
+
+export interface RosterEntry {
+  name: string;
+  email?: string;
 }
 
 export interface CreateClassRequest {

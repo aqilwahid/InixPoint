@@ -26,6 +26,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
     return me?.stars || 0;
   });
   const [starToast, setStarToast] = useState<string | null>(null);
+  const [rankingItems, setRankingItems] = useState<string[]>([]);
 
   // ponytail: countdown timer based on server timeStartedAt
   const [, setTick] = useState(0);
@@ -47,6 +48,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
       setAnswerInput('');
       setSubmittedAnswer(null);
       setStatusMessage('');
+      setRankingItems(q.type === 'ranking' ? [...((q.options as any)?.items || [])] : []);
     });
     socket.on('slide-changed', (slide) => setBroadcastSlide(slide));
 
@@ -146,6 +148,16 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
     });
   };
 
+  const moveRankingItem = (index: number, direction: -1 | 1) => {
+    setRankingItems((items) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= items.length) return items;
+      const next = [...items];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Header */}
@@ -225,13 +237,13 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
               <h3 className="font-serif font-bold text-2xl text-neutral-900">{currentQuestion.prompt}</h3>
             </div>
 
-            {/* Answer Controls */}
-        {broadcastSlide && (
+            {broadcastSlide && (
           <div className="w-full max-w-2xl mb-5 rounded-xl border border-neutral-200 bg-white p-3">
             <p className="mb-2 text-xs font-semibold text-neutral-500">Slide {broadcastSlide.index + 1}: {broadcastSlide.title}</p>
             {broadcastSlide.imageUrl && <img src={broadcastSlide.imageUrl} alt={broadcastSlide.title} className="mx-auto max-h-[40vh] w-full object-contain" />}
           </div>
-        )}
+          )}
+          {/* Answer Controls */}
         {currentQuestion.type === 'image_upload' && (
         <div className="space-y-4">
         <label htmlFor="image-answer" className="block text-sm font-semibold text-neutral-800">Pilih gambar (PNG, JPEG, atau WebP, maksimal 5 MB)</label>
@@ -326,7 +338,7 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
 
             {currentQuestion.type === 'slide_drawing' && (
               <div className="space-y-4">
-                <DrawingCanvas onSave={(dataUrl) => setAnswerInput(dataUrl)} />
+                <DrawingCanvas onSave={(dataUrl) => setAnswerInput(dataUrl)} backgroundImage={currentQuestion.slideImageUrl} />
                 <button
                   type="button"
                   disabled={!answerInput || isSubmitting}
@@ -346,6 +358,21 @@ export const Participant: React.FC<ParticipantProps> = ({ room: initialRoom, par
                 submitted={!!submittedAnswer}
                 isSubmitting={isSubmitting}
               />
+            )}
+
+            {currentQuestion.type === 'ranking' && (
+              <div className="space-y-3">
+                <p className="text-sm text-neutral-600">Susun item dari urutan pertama hingga terakhir.</p>
+                {rankingItems.map((item, index) => (
+                  <div key={item} className="flex min-h-11 items-center gap-2 rounded-lg border border-neutral-200 bg-white p-2">
+                    <span className="w-7 text-center font-mono font-bold text-primary-700">{index + 1}</span>
+                    <span className="min-w-0 flex-1 font-medium text-neutral-900">{item}</span>
+                    <button type="button" aria-label={`Naikkan ${item}`} disabled={index === 0 || isSubmitting} onClick={() => moveRankingItem(index, -1)} className="min-h-11 min-w-11 rounded border border-neutral-300 font-bold disabled:opacity-40">↑</button>
+                    <button type="button" aria-label={`Turunkan ${item}`} disabled={index === rankingItems.length - 1 || isSubmitting} onClick={() => moveRankingItem(index, 1)} className="min-h-11 min-w-11 rounded border border-neutral-300 font-bold disabled:opacity-40">↓</button>
+                  </div>
+                ))}
+                <button type="button" disabled={rankingItems.length < 2 || isSubmitting} onClick={() => handleSubmit(JSON.stringify(rankingItems))} className="btn-primary w-full disabled:opacity-50">Kirim Urutan</button>
+              </div>
             )}
 
             {currentQuestion.type === 'quick_poll' && (

@@ -37,7 +37,31 @@ export function getClassById(id: string, ownerId: string): Class | null {
     ownerId: row.owner_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isLocked: !!row.is_locked,
   };
+}
+
+export function setClassLocked(id: string, ownerId: string, isLocked: boolean): boolean {
+  const stmt = db.prepare(`UPDATE classes SET is_locked = ?, updated_at = ? WHERE id = ? AND owner_id = ?`);
+  const result = stmt.run(isLocked ? 1 : 0, Date.now(), id, ownerId);
+  return result.changes > 0;
+}
+
+export function addRosterEntry(classId: string, name: string, email?: string): string {
+  const id = randomBytes(8).toString('hex');
+  const stmt = db.prepare(`INSERT INTO class_roster (id, class_id, name, email, created_at) VALUES (?, ?, ?, ?, ?)`);
+  stmt.run(id, classId, name, email || null, Date.now());
+  return id;
+}
+
+export function getRoster(classId: string): Array<{ name: string; email?: string }> {
+  const stmt = db.prepare(`SELECT name, email FROM class_roster WHERE class_id = ? ORDER BY name`);
+  const rows = stmt.all(classId) as any[];
+  return rows.map(r => ({ name: r.name, email: r.email || undefined }));
+}
+
+export function clearRoster(classId: string): void {
+  db.prepare(`DELETE FROM class_roster WHERE class_id = ?`).run(classId);
 }
 
 export function updateClass(id: string, ownerId: string, updates: { name?: string; description?: string }): Class | null {

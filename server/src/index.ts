@@ -2,14 +2,26 @@ import express from 'express';
 import http from 'node:http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import type { 
+import { 
   ClientToServerEvents, 
-  ServerToClientEvents 
+  ServerToClientEvents,
+  BUILTIN_PLUGINS
 } from '@inixpoint/shared';
-import { initDatabase, getRoomSummary, getSessionReport, getSessionsByOwner } from './db.js';
+import { 
+  initDatabase, 
+  getRoomSummary, 
+  getSessionReport, 
+  getSessionsByOwner,
+  getQuestionAnalytics,
+  saveCustomPlugin,
+  getCustomPlugins,
+  revokeCustomPlugin,
+  deleteCustomPlugin,
+  reportPluginIssue
+} from './db.js';
 import { RoomManager } from './roomManager.js';
 import { registerUser, loginUser, verifyToken, extractToken } from './auth.js';
-import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass, getClassLeaderboard } from './classes.js';
+import { createClass, getClassesByOwner, getClassById, updateClass, deleteClass, getClassLeaderboard, setClassLocked, addRosterEntry, getRoster, clearRoster } from './classes.js';
 import ExcelJS from 'exceljs';
 
 const app = express();
@@ -122,6 +134,52 @@ app.get('/api/classes/:id/leaderboard', authMiddleware, (req, res) => {
   res.json({ success: true, leaderboard });
 });
 
+// F-08/09: Lock class
+app.post('/api/classes/:id/lock', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const success = setClassLocked(id, (req as any).user.userId, true);
+  if (!success) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true, locked: true });
+});
+
+app.post('/api/classes/:id/unlock', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const success = setClassLocked(id, (req as any).user.userId, false);
+  if (!success) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  res.json({ success: true, locked: false });
+});
+
+// F-11: Roster import (CSV)
+app.post('/api/classes/:id/roster', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const cls = getClassById(id, (req as any).user.userId);
+  if (!cls) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  
+  const csv = typeof req.body.csv === 'string' ? req.body.csv : '';
+  const lines = csv.split('\n').filter((l: string) => l.trim());
+  clearRoster(id);
+  
+  let added = 0;
+  for (const line of lines) {
+    const parts = line.split(',').map((p: string) => p.trim());
+    if (parts[0]) {
+      addRosterEntry(id, parts[0], parts[1]);
+      added++;
+    }
+  }
+  
+  res.json({ success: true, added });
+});
+
+app.get('/api/classes/:id/roster', authMiddleware, (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const cls = getClassById(id, (req as any).user.userId);
+  if (!cls) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
+  
+  const roster = getRoster(id);
+  res.json({ success: true, roster });
+});
+
 // R4-R04: Session history & reporting
 app.get('/api/sessions', authMiddleware, (req, res) => {
   const sessions = getSessionsByOwner((req as any).user.userId);
@@ -133,6 +191,91 @@ app.get('/api/sessions/:code/report', authMiddleware, (req, res) => {
   const report = getSessionReport(code);
   if (!report) return res.status(404).json({ success: false, error: 'Sesi tidak ditemukan' });
   res.json({ success: true, report });
+});
+
+// R4-R05: Question analytics
+app.get('/api/sessions/:code/questions/:questionId/analytics', authMiddleware, (req, res) => {
+  const code = typeof req.params.code === 'string' ? req.params.code : '';
+  const questionId = typeof req.params.questionId === 'string' ? req.params.questionId : '';
+  const analytics = getQuestionAnalytics(code, questionId);
+  if (!analytics) return res.status(404).json({ success: false, error: 'Data tidak ditemukan' });
+  res.json({ success: true, analytics });
+});
+
+// R5 PL-01, PL-08, PL-09, PL-10, PL-16: Plugin Management Endpoints
+app.get('/api/plugins', (req, res) => {
+  const custom = getCustomPlugins();
+  const plugins = [
+    ...BUILTIN_PLUGINS.map(p => ({ ...p, isBuiltin: true })),
+    ...custom.map(c => {
+      let manifest: any = {};
+      try { manifest = JSON.parse(c.manifest_json); } catch {}
+      return {
+        manifest,
+        html: c.html_content,
+        isBuiltin: false,
+        ownerId: c.owner_id,
+        createdAt: c.created_at
+      };
+    })
+  ];
+  res.json({ success: true, plugins });
+});
+
+app.post('/api/plugins', (req, res) => {
+  const token = extractToken(req.headers.authorization);
+  const verification = token ? verifyToken(token) : null;
+  const user = verification?.valid ? verification.payload : null;
+  const { manifest, html } = req.body;
+
+  if (!manifest || typeof manifest !== 'object') {
+    return res.status(400).json({ success: false, error: 'Manifest plugin tidak valid' });
+  }
+  if (!manifest.id || !manifest.name || !manifest.version) {
+    return res.status(400).json({ success: false, error: 'Manifest harus memiliki id, name, dan version' });
+  }
+  if (!html || typeof html !== 'string') {
+    return res.status(400).json({ success: false, error: 'Konten HTML plugin wajib ada' });
+  }
+  if (Buffer.byteLength(html, 'utf8') > 5 * 1024 * 1024) {
+    return res.status(400).json({ success: false, error: 'Ukuran paket plugin melebihi batas 5 MB' });
+  }
+
+  saveCustomPlugin({
+    id: manifest.id,
+    ownerId: user?.userId,
+    name: manifest.name,
+    version: manifest.version,
+    manifestJson: JSON.stringify(manifest),
+    htmlContent: html,
+  });
+
+  res.json({ success: true, pluginId: manifest.id });
+});
+
+app.post('/api/plugins/:id/revoke', (req, res) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  revokeCustomPlugin(id);
+  res.json({ success: true, message: 'Plugin berhasil dicabut (kill switch diaktifkan)' });
+});
+
+app.delete('/api/plugins/:id', (req, res) => {
+  const token = extractToken(req.headers.authorization);
+  const verification = token ? verifyToken(token) : null;
+  const user = verification?.valid ? verification.payload : null;
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  deleteCustomPlugin(id, user?.userId);
+  res.json({ success: true });
+});
+
+app.post('/api/plugins/:id/report', (req, res) => {
+  const token = extractToken(req.headers.authorization);
+  const verification = token ? verifyToken(token) : null;
+  const user = verification?.valid ? verification.payload : null;
+  const id = typeof req.params.id === 'string' ? req.params.id : '';
+  const reason = typeof req.body.reason === 'string' ? req.body.reason : 'Masalah performa / bug';
+  const reportId = reportPluginIssue(id, user?.userId, reason);
+  res.json({ success: true, reportId });
 });
 
 app.get('/api/reports/:code', (req, res) => {

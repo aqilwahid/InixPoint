@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/jszip": "^3.4.0",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.16.0",
     "pdfjs-dist": "^3.11.174",
     "qrcode.react": "^4.2.0",

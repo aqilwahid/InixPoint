@@ -66,4 +66,46 @@ rm.closeQuestion(room.code, room.currentQuestion!.id);
 const res4 = rm.submitPluginScore(room.code, 'socket_p1', 50);
 assert(!res4.success, 'Score must be rejected when plugin game is closed');
 
+// 7. Test custom plugin database operations (PL-08, PL-10, PL-16)
+import { saveCustomPlugin, getCustomPlugins, revokeCustomPlugin, deleteCustomPlugin, reportPluginIssue } from './db.js';
+
+const customManifest = {
+  id: 'custom-math-battle',
+  name: 'Math Battle Custom',
+  version: '1.0.0',
+  author: 'Trainer Custom',
+  views: ['presenter', 'participant'] as ('presenter' | 'participant')[],
+  participants: { min: 2, max: 50 },
+  scoring: { mode: 'points' as const, maxPointsPerRound: 80 }
+};
+
+saveCustomPlugin({
+  id: customManifest.id,
+  name: customManifest.name,
+  version: customManifest.version,
+  manifestJson: JSON.stringify(customManifest),
+  htmlContent: '<html><body>Math Battle</body></html>'
+});
+
+const customList = getCustomPlugins();
+const saved = customList.find(p => p.id === customManifest.id);
+assert(saved, 'Custom plugin must be stored in database');
+assert.strictEqual(saved.name, 'Math Battle Custom');
+
+// Test report issue (PL-16)
+const reportId = reportPluginIssue(customManifest.id, 'trainer_1', 'Bug kalkulasi skor');
+assert(reportId && reportId.startsWith('rep_'), 'Plugin report ID must be generated');
+
+// Test kill switch / revoke (PL-10)
+revokeCustomPlugin(customManifest.id);
+const activeList = getCustomPlugins(false);
+assert(!activeList.some(p => p.id === customManifest.id), 'Revoked plugin must not appear in active list (PL-10 kill switch)');
+
+const allList = getCustomPlugins(true);
+assert(allList.some(p => p.id === customManifest.id && p.status === 'revoked'), 'Revoked plugin must be flagged in all list');
+
+// Cleanup
+deleteCustomPlugin(customManifest.id);
+assert(!getCustomPlugins(true).some(p => p.id === customManifest.id), 'Deleted plugin must be removed');
+
 console.log('✅ R5 Plugin Game assertions passed successfully!');

@@ -57,6 +57,25 @@ export function initDatabase() {
       stars_earned INTEGER DEFAULT 0,
       FOREIGN KEY (room_code) REFERENCES quiz_sessions(code)
     );
+
+    CREATE TABLE IF NOT EXISTS custom_plugins (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      manifest_json TEXT NOT NULL,
+      html_content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS plugin_reports (
+      id TEXT PRIMARY KEY,
+      plugin_id TEXT NOT NULL,
+      reporter_id TEXT,
+      reason TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
   `);
       for (const [column, type] of [['points_awarded', 'INTEGER DEFAULT 0'], ['response_duration_sec', 'REAL DEFAULT 0'], ['stars_earned', 'INTEGER DEFAULT 0']] as const) {
       try { db.exec(`ALTER TABLE quiz_answers ADD COLUMN ${column} ${type}`); } catch (error) {
@@ -77,6 +96,18 @@ export function initDatabase() {
       // R4-F08/09 Migration: add is_locked to classes
       try { db.exec(`ALTER TABLE classes ADD COLUMN is_locked INTEGER DEFAULT 0`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('duplicate column')) throw error;
+      }
+      
+      // R4-F11 Migration: add class_roster table
+      try { db.exec(`CREATE TABLE IF NOT EXISTS class_roster (
+        id TEXT PRIMARY KEY,
+        class_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        email TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
       }
 }
 
@@ -213,4 +244,92 @@ export function getSessionReport(roomCode: string): SessionReport | null {
 export function getSessionsByOwner(ownerId: string) {
   const stmt = db.prepare('SELECT code, title, status, total_participants, total_questions, created_at, closed_at FROM quiz_sessions WHERE owner_id = ? ORDER BY created_at DESC');
   return stmt.all(ownerId);
+}
+
+// R4-R05: Per-question analytics
+export interface QuestionAnalytics {
+  questionId: string;
+  totalAnswers: number;
+  correctAnswers: number;
+  correctPercent: number;
+  avgResponseSec: number;
+  avgPoints: number;
+  answerDistribution: Record<string, number>;
+}
+
+export function getQuestionAnalytics(roomCode: string, questionId: string): QuestionAnalytics | null {
+  const answers = db.prepare('SELECT * FROM quiz_answers WHERE room_code = ? AND question_id = ?').all(roomCode, questionId) as any[];
+  if (answers.length === 0) return null;
+
+  const correctCount = answers.filter(a => a.is_correct).length;
+  const totalResponseTime = answers.reduce((sum, a) => sum + (a.response_duration_sec || 0), 0);
+  const totalPoints = answers.reduce((sum, a) => sum + (a.points_awarded || 0), 0);
+  
+  const distribution: Record<string, number> = {};
+  for (const ans of answers) {
+    const key = ans.content || '(empty)';
+    distribution[key] = (distribution[key] || 0) + 1;
+  }
+
+  return {
+    questionId,
+    totalAnswers: answers.length,
+    correctAnswers: correctCount,
+    correctPercent: Math.round((correctCount / answers.length) * 100),
+    avgResponseSec: answers.length > 0 ? Math.round((totalResponseTime / answers.length) * 10) / 10 : 0,
+    avgPoints: answers.length > 0 ? Math.round(totalPoints / answers.length) : 0,
+    answerDistribution: distribution,
+  };
+}
+
+// R5 PL-08 & PL-10: Custom plugin management and kill-switch
+export function saveCustomPlugin(plugin: {
+  id: string;
+  ownerId?: string;
+  name: string;
+  version: string;
+  manifestJson: string;
+  htmlContent: string;
+}) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO custom_plugins (id, owner_id, name, version, manifest_json, html_content, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+  `);
+  stmt.run(plugin.id, plugin.ownerId || null, plugin.name, plugin.version, plugin.manifestJson, plugin.htmlContent, Date.now());
+}
+
+export function getCustomPlugins(includeRevoked = false) {
+  const sql = includeRevoked
+    ? 'SELECT * FROM custom_plugins ORDER BY created_at DESC'
+    : "SELECT * FROM custom_plugins WHERE status = 'active' ORDER BY created_at DESC";
+  return db.prepare(sql).all() as Array<{
+    id: string;
+    owner_id: string | null;
+    name: string;
+    version: string;
+    manifest_json: string;
+    html_content: string;
+    status: string;
+    created_at: number;
+  }>;
+}
+
+export function revokeCustomPlugin(id: string) {
+  db.prepare("UPDATE custom_plugins SET status = 'revoked' WHERE id = ?").run(id);
+}
+
+export function deleteCustomPlugin(id: string, ownerId?: string) {
+  if (ownerId) {
+    db.prepare('DELETE FROM custom_plugins WHERE id = ? AND owner_id = ?').run(id, ownerId);
+  } else {
+    db.prepare('DELETE FROM custom_plugins WHERE id = ?').run(id);
+  }
+}
+
+export function reportPluginIssue(pluginId: string, reporterId: string | undefined, reason: string) {
+  const id = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  db.prepare('INSERT INTO plugin_reports (id, plugin_id, reporter_id, reason, created_at) VALUES (?, ?, ?, ?, ?)').run(
+    id, pluginId, reporterId || null, reason, Date.now()
+  );
+  return id;
 }

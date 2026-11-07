@@ -13,4 +13,7 @@ assert.equal(manager.submitAnswer(room.code, question.id, participant!.id, JSON.
 const image = manager.startQuestion(room.code, { type: 'image_upload', prompt: 'Image' });
 assert.ok(image);
 assert.equal(manager.submitAnswer(room.code, image.id, participant!.id, 'not-an-image'), undefined);
+const blank = manager.startQuestion(room.code, { type: 'short_answer', prompt: 'Ibukota', correctAnswers: ['Jakarta'], difficulty: 'easy' });
+assert.ok(blank);
+assert.equal(manager.submitAnswer(room.code, blank.id, participant!.id, 'jakarta')?.pointsAwarded, 10);
 console.log('R3 assertions passed!');

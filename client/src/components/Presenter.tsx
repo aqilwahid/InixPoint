@@ -17,6 +17,7 @@ import { Leaderboard } from './Leaderboard';
 import { AnnotationToolkit } from './AnnotationToolkit';
 import { DeckPresenter } from './DeckPresenter';
 import { PluginSandbox } from './PluginSandbox';
+import { PluginPlayground } from './PluginPlayground';
 import { 
   Users, 
   BarChart3, 
@@ -116,10 +117,13 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
   const [showResponses, setShowResponses] = useState(true);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [activeShortAnswerIndex, setActiveShortAnswerIndex] = useState<number | null>(null);
+  const [answerQuery, setAnswerQuery] = useState('');
+  const [showSessionSummary, setShowSessionSummary] = useState(false);
 
   // R5 Plugin Game state
   const [selectedPluginId, setSelectedPluginId] = useState<string>('tebak-cepat');
   const [pluginCountLeaderboard, setPluginCountLeaderboard] = useState<boolean>(true);
+  const [showPlaygroundModal, setShowPlaygroundModal] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timeLimitSec, setTimeLimitSec] = useState(30);
   const [isBgmPlaying, setIsBgmPlaying] = useState(false);
@@ -383,6 +387,11 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       alert('Silakan tuliskan pertanyaan/instruksi terlebih dahulu.');
       return;
     }
+    const rankingItems = rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean);
+    if (activeTab === 'ranking' && rankingItems.length < 2) {
+      alert('Ranking memerlukan minimal dua item.');
+      return;
+    }
 
     const questionPayload: Omit<Question, 'id' | 'status' | 'createdAt'> = {
       type: activeTab,
@@ -402,9 +411,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
         template: pollTemplate,
         options: POLL_TEMPLATES[pollTemplate].options
       } : activeTab === 'ranking' ? {
-        items: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean),
-        correctOrder: rankingItemsInput.split('\n').map(item => item.trim()).filter(Boolean)
+        items: rankingItems,
+        correctOrder: rankingItems
       } : undefined,
+      slideImageUrl: activeTab === 'slide_drawing' ? deck?.slides[deck.currentSlideIndex]?.imageUrl : undefined,
       pluginConfig: activeTab === 'plugin_game' ? {
         pluginId: selectedPlugin.manifest.id,
         manifest: selectedPlugin.manifest,
@@ -420,6 +430,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
     setTimerSeconds(0);
     setShowResponses(true);
     setActiveShortAnswerIndex(null);
+    setAnswerQuery('');
     socket.emit('start-question', {
       code: room.code,
       hostToken,
@@ -449,6 +460,13 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
       ...prev,
       currentQuestion: prev.currentQuestion ? { ...prev.currentQuestion, status: 'closed' } : undefined
     }));
+  };
+
+  const handleCloseRoom = () => {
+    setIsBgmPlaying(false);
+    if (room.currentQuestion?.status === 'active') handleCloseQuestion();
+    socket.emit('close-room', { code: room.code, hostToken });
+    setShowSessionSummary(true);
   };
 
   const handleExportCSV = () => {
@@ -549,6 +567,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
     }
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [receivedAnswers]);
+  const visibleAnswers = React.useMemo(() => {
+    const query = answerQuery.trim().toLocaleLowerCase();
+    return query ? receivedAnswers.filter((answer) => answer.content.toLocaleLowerCase().includes(query)) : receivedAnswers;
+  }, [answerQuery, receivedAnswers]);
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col w-full overflow-x-hidden">
@@ -648,7 +670,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
 
             <button
               type="button"
-              onClick={onExit}
+              onClick={handleCloseRoom}
               className="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-500/10 transition flex-shrink-0"
             >
               Akhiri
@@ -672,8 +694,19 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
           {/* Question Launcher / Ribbon (mirip toolbar ClassPoint di gambar) */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 shadow-lg">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
-              <span className="flex items-center">
-                <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
+              <span className="flex items-center gap-2">
+                <span className="flex items-center">
+                  <Sparkles className="w-4 h-4 mr-1.5 text-brand-400" /> Pilih Tipe Interaksi Kuis
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPlaygroundModal(true)}
+                  className="text-[11px] font-semibold text-pink-400 hover:text-pink-300 bg-pink-500/10 px-2.5 py-0.5 rounded-full border border-pink-500/30 flex items-center gap-1 transition"
+                  title="Buka Plugin Playground untuk menguji atau mengunggah game baru (PL-11)"
+                >
+                  <Gamepad2 className="w-3.5 h-3.5" />
+                  <span>Playground Game (Beta)</span>
+                </button>
               </span>
               {isQuestionActive && (
                 <span className="text-amber-400 font-semibold normal-case flex items-center gap-1 text-[11px] bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
@@ -830,6 +863,18 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                 </div>
               )}
 
+              {activeTab === 'ranking' && (
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-400">Urutan benar, satu item per baris</span>
+                  <textarea rows={4} value={rankingItemsInput} onChange={(e) => setRankingItemsInput(e.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm" />
+                </label>
+              )}
+              {activeTab === 'short_answer' && (
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-400">Jawaban benar, satu per baris, opsional</span>
+                  <textarea rows={2} value={fillAnswersInput} onChange={(e) => setFillAnswersInput(e.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm" placeholder="Contoh: Jakarta" />
+                </label>
+              )}
               {activeTab === 'matching' && (
                 <div className="space-y-2 pt-1">
                   <div className="flex justify-between items-center text-xs text-slate-400 font-semibold px-1">
@@ -845,29 +890,6 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                       </button>
                     )}
 
-                    {activeTab !== 'matching' && activeTab === 'ranking' && (
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-400">Urutan benar (satu item per baris)</span>
-                        <textarea
-                          rows={4}
-                          value={rankingItemsInput}
-                          onChange={(e) => setRankingItemsInput(e.target.value)}
-                          className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm"
-                        />
-                      </label>
-                    )}
-                    {activeTab !== 'matching' && activeTab === 'short_answer' && (
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-400">Jawaban benar, satu per baris (opsional)</span>
-                        <textarea
-                          rows={2}
-                          value={fillAnswersInput}
-                          onChange={(e) => setFillAnswersInput(e.target.value)}
-                          className="mt-1 w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg text-sm"
-                          placeholder="Contoh: Jakarta"
-                        />
-                      </label>
-                    )}
                   </div>
                   <div className="space-y-2">
                     {matchingPairs.map((pair, idx) => (
@@ -1078,6 +1100,13 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
               </div>
             </div>
 
+            {room.currentQuestion && ['short_answer', 'word_cloud', 'matching', 'slide_drawing', 'image_upload'].includes(room.currentQuestion.type) && (
+              <label className="mb-4 block text-xs text-slate-300">
+                Cari jawaban peserta
+                <input value={answerQuery} onChange={(event) => setAnswerQuery(event.target.value)} placeholder="Kata kunci" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+              </label>
+            )}
+
             {/* Answer Display */}
             {!room.currentQuestion ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500">
@@ -1176,10 +1205,10 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                           Menunggu jawaban teks dari audiens...
                         </p>
                       ) : (
-                        receivedAnswers.map((ans, idx) => (
-                          <div 
+                        visibleAnswers.map((ans) => (
+                          <button type="button"
                             key={ans.id} 
-                            onClick={() => setActiveShortAnswerIndex(idx)}
+                            onClick={() => setActiveShortAnswerIndex(receivedAnswers.indexOf(ans))}
                             className="group bg-slate-700/60 hover:bg-slate-700 border border-slate-600 hover:border-amber-400/60 p-3.5 rounded-xl flex flex-col justify-between cursor-pointer transition shadow hover:shadow-lg relative"
                           >
                             <div className="flex justify-between items-start mb-2">
@@ -1192,7 +1221,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                             <span className="text-xs text-brand-300 font-semibold mt-3 block text-right">
                               — {anonymousMode ? 'Anonim' : ans.participantName}
                             </span>
-                          </div>
+                          </button>
                         ))
                       )}
                     </div>
@@ -1207,7 +1236,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                         Menunggu peserta menggambar di kanvas...
                       </p>
                     ) : (
-                      receivedAnswers.map((ans) => (
+                      visibleAnswers.map((ans) => (
                         <div key={ans.id} className="bg-slate-700 border border-slate-600 rounded-xl overflow-hidden p-2 flex flex-col">
                           <img 
                             src={ans.content} 
@@ -1260,7 +1289,7 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {receivedAnswers.map((ans) => {
+                          {visibleAnswers.map((ans) => {
                             let parsed: Record<string, string> = {};
                             try {
                               parsed = JSON.parse(ans.content);
@@ -1307,6 +1336,20 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
                       )}
                     </div>
                   </div>
+                )}
+
+                {room.currentQuestion.type === 'ranking' && (
+                  <div className="space-y-3 py-3">
+                    {visibleAnswers.length === 0 ? <p className="text-center text-xs text-slate-500 py-8">Menunggu urutan peserta...</p> : visibleAnswers.map((answer) => {
+                      let order: string[] = [];
+                      try { order = JSON.parse(answer.content); } catch { /* server already validates score */ }
+                      return <div key={answer.id} className="rounded-xl border border-slate-700 bg-slate-900/40 p-3"><p className="mb-2 text-sm font-semibold text-slate-100">{anonymousMode ? 'Anonim' : answer.participantName} <span className="text-emerald-400">+{answer.pointsAwarded ?? 0}</span></p><ol className="list-decimal pl-5 text-sm text-slate-300">{order.map((item) => <li key={item}>{item}</li>)}</ol></div>;
+                    })}
+                  </div>
+                )}
+
+                {room.currentQuestion.type === 'image_upload' && (
+                  <div className="grid grid-cols-2 gap-3 p-2 sm:grid-cols-3">{visibleAnswers.map((answer) => <figure key={answer.id} className="rounded-xl border border-slate-600 bg-slate-700 p-2"><img src={answer.content} alt={`Unggahan dari ${anonymousMode ? 'peserta anonim' : answer.participantName}`} className="aspect-square w-full rounded-lg object-contain bg-white" /><figcaption className="mt-2 truncate text-center text-xs text-slate-200">{anonymousMode ? 'Anonim' : answer.participantName}</figcaption></figure>)}</div>
                 )}
 
                 {/* QUICK POLL RESULTS VISUALIZER (ClassPoint Style) */}
@@ -1823,12 +1866,32 @@ export const Presenter: React.FC<PresenterProps> = ({ room: initialRoom, hostTok
           </div>
         </div>
       )}
+      {showSessionSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="session-summary-title" className="w-full max-w-md rounded-2xl bg-white p-6 text-slate-900">
+            <h2 id="session-summary-title" className="text-xl font-bold">Ringkasan sesi</h2>
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-slate-500">Peserta</dt><dd className="font-bold">{participantList.length}</dd></div><div><dt className="text-slate-500">Aktivitas</dt><dd className="font-bold">{room.questions.length}</dd></div><div><dt className="text-slate-500">Respons terakhir</dt><dd className="font-bold">{receivedAnswers.length}</dd></div><div><dt className="text-slate-500">Skor tertinggi</dt><dd className="font-bold">{Math.max(0, ...participantList.map((participant) => participant.score))}</dd></div></dl>
+            <div className="mt-6 flex gap-3"><button type="button" onClick={handleExportXLSX} className="btn-primary flex-1">Ekspor XLSX</button><button type="button" onClick={onExit} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-semibold">Selesai</button></div>
+          </div>
+        </div>
+      )}
       {/* R2 P-13: Annotation & Whiteboard Canvas Overlay */}
       <AnnotationToolkit
         isOpen={isAnnotationOpen}
         onClose={() => setIsAnnotationOpen(false)}
         isWhiteboard={isWhiteboardActive}
         onToggleWhiteboard={() => setIsWhiteboardActive(prev => !prev)}
+      />
+
+      {/* R5 PL-11: Plugin Playground Modal */}
+      <PluginPlayground
+        isOpen={showPlaygroundModal}
+        onClose={() => setShowPlaygroundModal(false)}
+        onSelectPluginForClass={(plugin) => {
+          setSelectedPluginId(plugin.manifest.id);
+          setActiveTab('plugin_game');
+          setShowPlaygroundModal(false);
+        }}
       />
     </div>
   );

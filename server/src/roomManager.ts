@@ -217,7 +217,7 @@ export class RoomManager {
       } catch { /* invalid ranking is not graded */ }
       } else if (question.type === 'short_answer' && question.correctAnswers?.length) {
       const normalized = content.trim().toLocaleLowerCase();
-      isCorrect = question.correctAnswers.some(answer => answer.trim().toLocaleLowerCase() === normalized);
+      isCorrect = normalized.length > 0 && question.correctAnswers.some(answer => answer.trim().toLocaleLowerCase() === normalized);
       pointsAwarded = isCorrect ? pointsPerCorrect : 0;
     } else if (question.type === 'quick_poll') {
       isCorrect = true;

@@ -2,15 +2,11 @@ import express from 'express';
 import http from 'node:http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { 
-  ClientToServerEvents, 
-  ServerToClientEvents,
-  BUILTIN_PLUGINS
-} from '@inixpoint/shared';
-import { 
-  initDatabase, 
-  getRoomSummary, 
-  getSessionReport, 
+import { ClientToServerEvents, ServerToClientEvents, BUILTIN_PLUGINS, i18n } from '@inixpoint/shared';
+import {
+  initDatabase,
+  getRoomSummary,
+  getSessionReport,
   getSessionsByOwner,
   getQuestionAnalytics,
   getLevelByStars,
@@ -160,11 +156,11 @@ app.post('/api/classes/:id/roster', authMiddleware, (req, res) => {
   const id = typeof req.params.id === 'string' ? req.params.id : '';
   const cls = getClassById(id, (req as any).user.userId);
   if (!cls) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
-  
+
   const csv = typeof req.body.csv === 'string' ? req.body.csv : '';
   const lines = csv.split('\n').filter((l: string) => l.trim());
   clearRoster(id);
-  
+
   let added = 0;
   for (const line of lines) {
     const parts = line.split(',').map((p: string) => p.trim());
@@ -173,7 +169,7 @@ app.post('/api/classes/:id/roster', authMiddleware, (req, res) => {
       added++;
     }
   }
-  
+
   res.json({ success: true, added });
 });
 
@@ -181,7 +177,7 @@ app.get('/api/classes/:id/roster', authMiddleware, (req, res) => {
   const id = typeof req.params.id === 'string' ? req.params.id : '';
   const cls = getClassById(id, (req as any).user.userId);
   if (!cls) return res.status(404).json({ success: false, error: 'Kelas tidak ditemukan' });
-  
+
   const roster = getRoster(id);
   res.json({ success: true, roster });
 });
@@ -253,8 +249,7 @@ app.put('/api/branding', authMiddleware, (req, res) => {
 // U-04: i18n endpoint
 app.get('/api/i18n/:lang', (req, res) => {
   const lang = req.params.lang === 'en' ? 'en' : 'id';
-  const { i18n } = await import('@inixpoint/shared');
-  res.json({ success: true, labels: i18n[lang] });
+res.json({ success: true, labels: i18n[lang] });
 });
 
 // R-06: Database config (PostgreSQL abstraction)
@@ -415,7 +410,7 @@ io.on('connection', (socket) => {
       const classId = typeof payload.classId === 'string' ? payload.classId : undefined;
       const auth = verifyToken(typeof payload.authToken === 'string' ? payload.authToken : '');
       const ownerId = auth.valid && auth.payload ? auth.payload.userId : undefined;
-      
+
       if (classId && ownerId) {
         // only the class owner may attach sessions to it (prevents leaderboard poisoning)
         if (!getClassById(classId, ownerId)) {
@@ -510,7 +505,7 @@ io.on('connection', (socket) => {
   });
   socket.on('submit-qna', (payload, callback) => {
   const content = payload.content.trim();
-  if (!content || content.length > 500) return callback({ success: false, error: 'Pertanyaan harus 1–500 karakter' });
+  if (!content || content.length > 500) return callback({ success: false, error: 'Pertanyaan harus 1â€“500 karakter' });
   if (roomManager.getRoom(payload.code)?.qnaEnabled === false) return callback({ success: false, error: 'Live Q&A sedang dinonaktifkan presenter' });
   const item = roomManager.submitQna(payload.code, socket.id, content);
   if (!item) return callback({ success: false, error: 'Peserta atau ruangan tidak ditemukan' });
@@ -660,5 +655,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`🚀 InixPoint Server running on http://localhost:${PORT}`);
+  console.log(`ðŸš€ InixPoint Server running on http://localhost:${PORT}`);
 });

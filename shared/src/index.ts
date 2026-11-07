@@ -213,6 +213,41 @@ export interface RosterEntry {
   email?: string;
 }
 
+// R4-U04: i18n
+export type LanguageCode = 'id' | 'en';
+export const i18n: Record<LanguageCode, Record<string, string>> = {
+  id: {
+    'label.class': 'Kelas',
+    'label.leaderboard': 'Leaderboard',
+    'label.report': 'Laporan',
+    'label.participants': 'Peserta',
+    'label.questions': 'Pertanyaan',
+    'label.settings': 'Pengaturan',
+    'action.create': 'Buat',
+    'action.edit': 'Edit',
+    'action.delete': 'Hapus',
+    'action.export': 'Ekspor',
+    'action.import': 'Impor',
+    'error.notfound': 'Data tidak ditemukan',
+    'error.unauthorized': 'Tidak diizinkan',
+  },
+  en: {
+    'label.class': 'Class',
+    'label.leaderboard': 'Leaderboard',
+    'label.report': 'Report',
+    'label.participants': 'Participants',
+    'label.questions': 'Questions',
+    'label.settings': 'Settings',
+    'action.create': 'Create',
+    'action.edit': 'Edit',
+    'action.delete': 'Delete',
+    'action.export': 'Export',
+    'action.import': 'Import',
+    'error.notfound': 'Data not found',
+    'error.unauthorized': 'Unauthorized',
+  }
+};
+
 export interface CreateClassRequest {
   name: string;
   description?: string;

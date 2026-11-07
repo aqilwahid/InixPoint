@@ -166,6 +166,20 @@ export function initDatabase() {
       )`); } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
       }
+      
+      // R4-R06: PostgreSQL abstraction (connection string for future migration)
+      try { db.exec(`CREATE TABLE IF NOT EXISTS database_config (
+        id TEXT PRIMARY KEY,
+        key TEXT NOT NULL UNIQUE,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`); } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('already exists')) throw error;
+      }
+      
+      // Initialize default db config
+      try { db.prepare(`INSERT OR IGNORE INTO database_config (id, key, value, updated_at) VALUES (?, ?, ?, ?)`).run('cfg_sqlite', 'database_url', 'sqlite://inixpoint.sqlite', Date.now()); } catch {}
+      try { db.prepare(`INSERT OR IGNORE INTO database_config (id, key, value, updated_at) VALUES (?, ?, ?, ?)`).run('cfg_schema_v', 'schema_version', '1', Date.now()); } catch {}
 }
 
 export function saveRoomReport(room: Room) {

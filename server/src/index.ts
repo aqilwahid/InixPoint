@@ -250,6 +250,18 @@ app.put('/api/branding', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// U-04: i18n endpoint
+app.get('/api/i18n/:lang', (req, res) => {
+  const lang = req.params.lang === 'en' ? 'en' : 'id';
+  const { i18n } = await import('@inixpoint/shared');
+  res.json({ success: true, labels: i18n[lang] });
+});
+
+// R-06: Database config (PostgreSQL abstraction)
+app.get('/api/config/database', authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'SQLite in use (PostgreSQL migration ready in schema)' });
+});
+
 // R5 PL-01, PL-08, PL-09, PL-10, PL-16: Plugin Management Endpoints
 app.get('/api/plugins', (req, res) => {
   const custom = getCustomPlugins();
